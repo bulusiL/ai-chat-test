@@ -7,12 +7,11 @@ import { KnowledgeService } from '@/lib/knowledge';
  */
 export async function POST(request: NextRequest) {
   try {
-    await KnowledgeService.initDefaultKnowledge();
-    
+    // 知识库已内置，无需初始化
     return NextResponse.json({
       success: true,
-      message: '知识库初始化成功',
-      dataset: KnowledgeService.KNOWLEDGE_DATASET
+      message: '知识库已就绪（使用内置知识库）',
+      note: '当前使用内置知识库，包含图书推荐和学习方法指导'
     });
   } catch (error) {
     console.error('Init knowledge error:', error);
