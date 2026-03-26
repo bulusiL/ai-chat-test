@@ -42,6 +42,18 @@ let cachedModels: string[] = [];
 let lastModelCheck = 0;
 
 /**
+ * 检查联网搜索 SDK 是否已配置
+ */
+export function isWebSearchConfigured(): boolean {
+  // 检查必要的环境变量
+  const apiKey = process.env.COZE_API_KEY;
+  const baseUrl = process.env.COZE_BASE_URL;
+  
+  // 需要至少有 API Key
+  return !!(apiKey && apiKey.length > 0);
+}
+
+/**
  * 检查 Ollama 服务是否可用
  */
 export async function checkOllamaHealth(baseUrl: string = DEFAULT_OLLAMA_URL): Promise<{
@@ -324,33 +336,46 @@ export async function* streamChatWithSearch(
 
   // 1. 尝试联网搜索
   let searchContext = '';
-  try {
-    const { SearchClient, Config } = await import('coze-coding-dev-sdk');
-    const searchConfig = new Config();
-    const searchClient = new SearchClient(searchConfig);
-    
-    const searchResult = await searchClient.webSearch(searchQuery, searchCount, true);
-    
-    if (searchResult.web_items && searchResult.web_items.length > 0) {
-      searchContext = '\n\n=== 联网搜索结果 ===\n';
+  
+  // 检查 SDK 是否已配置
+  if (!isWebSearchConfigured()) {
+    console.log('Web search SDK not configured, skipping web search');
+    yield '⚠️ 联网搜索功能未配置。如需使用联网搜索，请在 .env 文件中配置 COZE_API_KEY。\n\n';
+  } else {
+    try {
+      const { SearchClient, Config } = await import('coze-coding-dev-sdk');
+      const searchConfig = new Config();
+      const searchClient = new SearchClient(searchConfig);
       
-      if (searchResult.summary) {
-        searchContext += `\n摘要: ${searchResult.summary}\n`;
+      const searchResult = await searchClient.webSearch(searchQuery, searchCount, true);
+      
+      if (searchResult.web_items && searchResult.web_items.length > 0) {
+        searchContext = '\n\n=== 联网搜索结果 ===\n';
+        
+        if (searchResult.summary) {
+          searchContext += `\n摘要: ${searchResult.summary}\n`;
+        }
+        
+        searchContext += '\n相关网页:\n';
+        searchResult.web_items.forEach((item, index) => {
+          searchContext += `\n${index + 1}. ${item.title}\n`;
+          searchContext += `   来源: ${item.site_name}\n`;
+          searchContext += `   摘要: ${item.snippet}\n`;
+          searchContext += `   链接: ${item.url}\n`;
+        });
+        
+        searchContext += '\n=== 搜索结果结束 ===\n\n';
       }
-      
-      searchContext += '\n相关网页:\n';
-      searchResult.web_items.forEach((item, index) => {
-        searchContext += `\n${index + 1}. ${item.title}\n`;
-        searchContext += `   来源: ${item.site_name}\n`;
-        searchContext += `   摘要: ${item.snippet}\n`;
-        searchContext += `   链接: ${item.url}\n`;
-      });
-      
-      searchContext += '\n=== 搜索结果结束 ===\n\n';
+    } catch (error) {
+      console.error('Web search failed:', error);
+      // 检查是否是 URL 错误
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('Invalid URL')) {
+        yield '⚠️ 联网搜索配置无效，请检查 COZE_API_KEY 和 COZE_BASE_URL 环境变量。\n\n';
+      } else {
+        yield '⚠️ 联网搜索暂时不可用，请稍后重试。\n\n';
+      }
     }
-  } catch (error) {
-    console.error('Web search failed:', error);
-    yield '⚠️ 联网搜索暂时不可用\n\n';
   }
 
   // 2. 构建带搜索上下文的消息
