@@ -4,19 +4,17 @@ import { Database } from '@/lib/db';
 /**
  * 初始化数据库表
  * POST /api/admin/init-db
- * 
- * 注意：生产环境中应该添加管理员认证
  */
 export async function POST(request: NextRequest) {
   try {
-    // 检查是否使用内存存储
-    if (Database.isMemoryStore()) {
+    // 先测试数据库连接
+    const connectionTest = await Database.testConnection();
+    if (!connectionTest.success) {
       return NextResponse.json({
-        success: true,
-        message: '使用内存存储模式，无需初始化数据库表',
-        storage: 'memory',
-        note: '数据仅在内存中保存，服务重启后会丢失。如需持久化存储，请配置数据库环境变量。'
-      });
+        success: false,
+        error: connectionTest.message,
+        hint: '请检查数据库配置：\n1. 确保数据库服务已启动\n2. 检查 .env.local 中的数据库配置\n3. 确保数据库已创建'
+      }, { status: 500 });
     }
     
     await Database.initDatabase();
@@ -24,7 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: '数据库表初始化成功',
-      storage: 'database'
+      connection: connectionTest.message
     });
   } catch (error) {
     console.error('Init database error:', error);
@@ -36,22 +34,29 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 获取存储状态
+ * 获取数据库连接状态
  * GET /api/admin/init-db
  */
 export async function GET(request: NextRequest) {
   try {
-    const isMemory = Database.isMemoryStore();
+    const connectionTest = await Database.testConnection();
+    const config = Database.getDatabaseConfig();
     
     return NextResponse.json({
       success: true,
-      storage: isMemory ? 'memory' : 'database',
-      message: isMemory 
-        ? '当前使用内存存储，数据仅在内存中保存' 
-        : '当前使用数据库存储'
+      connected: connectionTest.success,
+      message: connectionTest.message,
+      config: {
+        type: config.type,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: config.username
+        // 不返回密码
+      }
     });
   } catch (error) {
-    console.error('Get storage status error:', error);
+    console.error('Get database status error:', error);
     return NextResponse.json({
       success: false,
       error: '获取状态失败'

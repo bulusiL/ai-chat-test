@@ -11,13 +11,16 @@
    npm install -g pnpm
    ```
 
-3. **安装 Ollama**
+3. **安装 MySQL 数据库**
+   - 下载地址: https://dev.mysql.com/downloads/mysql/
+   - 安装后创建数据库:
+   ```sql
+   CREATE DATABASE ai_chat CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+4. **安装 Ollama**
    - 下载地址: https://ollama.com/download
    - 安装后拉取模型: `ollama pull qwen2.5:7b`
-
-4. **安装数据库** (可选，默认使用 SQLite)
-   - PostgreSQL: https://www.postgresql.org/download/windows/
-   - MySQL: https://dev.mysql.com/downloads/mysql/
 
 ## 🚀 快速启动
 
@@ -29,9 +32,13 @@
 
 # 2. 配置环境变量
 copy .env.example .env.local
-# 编辑 .env.local 填写配置
+# 编辑 .env.local 填写数据库配置
 
-# 3. 启动开发服务器
+# 3. 初始化数据库表（首次运行必须执行）
+curl -X POST http://localhost:5000/api/admin/init-db
+# 或者在浏览器访问后，通过管理界面初始化
+
+# 4. 启动开发服务器
 .\scripts\dev.bat
 ```
 
@@ -64,14 +71,16 @@ pnpm start:win
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:7b
 
-# 数据库配置 (如果不配置，使用内存存储)
-DB_TYPE=postgresql
+# MySQL 数据库配置（必须配置）
+DB_TYPE=mysql
 DB_HOST=localhost
-DB_PORT=5432
+DB_PORT=3306
 DB_NAME=ai_chat
-DB_USER=postgres
-DB_PASSWORD=your_password
+DB_USER=root
+DB_PASSWORD=你的数据库密码
 ```
+
+⚠️ **重要**: 必须先配置数据库连接，否则 Token 生成会失败！
 
 ## 🔧 可用脚本
 

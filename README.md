@@ -25,8 +25,8 @@
 
 ### 认证系统
 - 🔐 **Token 认证** - 安全的 Token 认证机制
-- 💻 **机器码绑定** - Token 绑定设备，防止滥用
-- 👤 **用户隔离** - 每个用户独立的会话和数据
+- 📱 **多设备支持** - 一个 Token 可在多个设备上使用
+- 👤 **用户隔离** - 每个设备独立的会话和数据
 
 ### 用户体验
 - 🌙 **深色模式** - 一键切换明暗主题
@@ -206,15 +206,24 @@ Body: { "count": 10 }
 
 ## 🗄️ 数据库表结构
 
-### 用户表 (users)
+### Token 表 (auth_tokens)
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | INT | 主键 |
-| token | VARCHAR(255) | 认证 Token |
-| machine_id | VARCHAR(255) | 机器码 |
+| token | VARCHAR(255) | 预生成的 Token |
+| device_count | INT | 已激活设备数 |
+| is_active | BOOLEAN | 是否有效 |
 | created_at | TIMESTAMP | 创建时间 |
+
+### 设备表 (devices)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INT | 主键 |
+| token | VARCHAR(255) | 使用的 Token |
+| machine_id | VARCHAR(255) | 机器码（唯一） |
+| device_name | VARCHAR(255) | 设备名称 |
 | last_active_at | TIMESTAMP | 最后活跃时间 |
-| is_active | BOOLEAN | 是否激活 |
+| created_at | TIMESTAMP | 首次激活时间 |
 
 ### 会话表 (sessions)
 | 字段 | 类型 | 说明 |
@@ -235,15 +244,6 @@ Body: { "count": 10 }
 | role | ENUM | 角色 (user/assistant/system) |
 | content | TEXT | 消息内容 |
 | created_at | TIMESTAMP | 创建时间 |
-
-### Token 表 (auth_tokens)
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | INT | 主键 |
-| token | VARCHAR(255) | 预生成的 Token |
-| is_used | BOOLEAN | 是否已使用 |
-| created_at | TIMESTAMP | 创建时间 |
-| used_at | TIMESTAMP | 使用时间 |
 
 ## 🔧 配置说明
 

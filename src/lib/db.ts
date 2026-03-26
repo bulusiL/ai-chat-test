@@ -1,6 +1,6 @@
 /**
  * 数据库配置
- * 支持 MySQL、PostgreSQL 和内存存储（降级方案）
+ * 支持 MySQL 和 PostgreSQL
  */
 
 import mysql from 'mysql2/promise';
@@ -8,211 +8,12 @@ import { Pool as PgPool } from 'pg';
 
 // 数据库配置接口
 export interface DatabaseConfig {
-  type: 'mysql' | 'postgresql' | 'memory';
+  type: 'mysql' | 'postgresql';
   host: string;
   port: number;
   database: string;
   username: string;
   password: string;
-}
-
-// ============ 内存存储 ============
-interface MemoryToken {
-  id: number;
-  token: string;
-  is_used: boolean;
-  created_at: Date;
-  used_at: Date | null;
-}
-
-interface MemoryUser {
-  id: number;
-  token: string;
-  machine_id: string;
-  created_at: Date;
-  last_active_at: Date;
-  is_active: boolean;
-}
-
-interface MemorySession {
-  id: number;
-  session_id: string;
-  machine_id: string;
-  title: string;
-  created_at: Date;
-  updated_at: Date;
-  is_deleted: boolean;
-}
-
-interface MemoryMessage {
-  id: number;
-  session_id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  created_at: Date;
-}
-
-// 内存存储
-class MemoryStore {
-  private tokens: MemoryToken[] = [];
-  private users: MemoryUser[] = [];
-  private sessions: MemorySession[] = [];
-  private messages: MemoryMessage[] = [];
-  private nextId = 1;
-
-  // Token 操作
-  async insertToken(token: string): Promise<number> {
-    const id = this.nextId++;
-    this.tokens.push({
-      id,
-      token,
-      is_used: false,
-      created_at: new Date(),
-      used_at: null,
-    });
-    return id;
-  }
-
-  async getTokens(): Promise<any[]> {
-    return this.tokens.map(t => ({
-      id: t.id,
-      token: t.token,
-      is_used: t.is_used,
-      created_at: t.created_at,
-      used_at: t.used_at,
-    }));
-  }
-
-  async deleteToken(id: number): Promise<boolean> {
-    const index = this.tokens.findIndex(t => t.id === id);
-    if (index === -1) return false;
-    if (this.tokens[index].is_used) return false;
-    this.tokens.splice(index, 1);
-    return true;
-  }
-
-  async useToken(token: string): Promise<boolean> {
-    const t = this.tokens.find(t => t.token === token && !t.is_used);
-    if (!t) return false;
-    t.is_used = true;
-    t.used_at = new Date();
-    return true;
-  }
-
-  async validateToken(token: string): Promise<boolean> {
-    return this.tokens.some(t => t.token === token && !t.is_used);
-  }
-
-  // User 操作
-  async createUser(token: string, machineId: string): Promise<number> {
-    const id = this.nextId++;
-    this.users.push({
-      id,
-      token,
-      machine_id: machineId,
-      created_at: new Date(),
-      last_active_at: new Date(),
-      is_active: true,
-    });
-    return id;
-  }
-
-  async getUserByMachineId(machineId: string): Promise<MemoryUser | null> {
-    return this.users.find(u => u.machine_id === machineId) || null;
-  }
-
-  async getUserByToken(token: string): Promise<MemoryUser | null> {
-    return this.users.find(u => u.token === token) || null;
-  }
-
-  // Session 操作
-  async createSession(sessionId: string, machineId: string, title: string = '新对话'): Promise<number> {
-    const id = this.nextId++;
-    this.sessions.push({
-      id,
-      session_id: sessionId,
-      machine_id: machineId,
-      title,
-      created_at: new Date(),
-      updated_at: new Date(),
-      is_deleted: false,
-    });
-    return id;
-  }
-
-  async getSessionsByMachineId(machineId: string): Promise<MemorySession[]> {
-    return this.sessions.filter(s => s.machine_id === machineId && !s.is_deleted);
-  }
-
-  async getSession(sessionId: string): Promise<MemorySession | null> {
-    return this.sessions.find(s => s.session_id === sessionId && !s.is_deleted) || null;
-  }
-
-  async updateSessionTitle(sessionId: string, title: string): Promise<boolean> {
-    const s = this.sessions.find(s => s.session_id === sessionId);
-    if (!s) return false;
-    s.title = title;
-    s.updated_at = new Date();
-    return true;
-  }
-
-  async deleteSession(sessionId: string): Promise<boolean> {
-    const s = this.sessions.find(s => s.session_id === sessionId);
-    if (!s) return false;
-    s.is_deleted = true;
-    return true;
-  }
-
-  // Message 操作
-  async createMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<number> {
-    const id = this.nextId++;
-    this.messages.push({
-      id,
-      session_id: sessionId,
-      role,
-      content,
-      created_at: new Date(),
-    });
-    return id;
-  }
-
-  async getMessagesBySessionId(sessionId: string): Promise<MemoryMessage[]> {
-    return this.messages.filter(m => m.session_id === sessionId);
-  }
-
-  // 初始化（内存存储不需要创建表）
-  async init(): Promise<void> {
-    console.log('Memory store initialized successfully');
-  }
-}
-
-// 全局内存存储实例
-let memoryStore: MemoryStore | null = null;
-
-// 从环境变量读取配置
-function getDatabaseConfig(): DatabaseConfig {
-  const dbType = (process.env.DB_TYPE || '').toLowerCase();
-  
-  // 如果没有配置数据库类型，使用内存存储
-  if (!dbType || dbType === 'memory') {
-    return {
-      type: 'memory',
-      host: '',
-      port: 0,
-      database: '',
-      username: '',
-      password: '',
-    };
-  }
-  
-  return {
-    type: dbType as 'mysql' | 'postgresql',
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || (dbType === 'mysql' ? '3306' : '5432')),
-    database: process.env.DB_NAME || 'ai_chat',
-    username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-  };
 }
 
 // MySQL 连接池
@@ -221,22 +22,18 @@ let mysqlPool: mysql.Pool | null = null;
 // PostgreSQL 连接池
 let pgPool: PgPool | null = null;
 
-/**
- * 检查是否使用内存存储
- */
-export function isMemoryStore(): boolean {
-  const config = getDatabaseConfig();
-  return config.type === 'memory';
-}
-
-/**
- * 获取内存存储实例
- */
-export function getMemoryStore(): MemoryStore {
-  if (!memoryStore) {
-    memoryStore = new MemoryStore();
-  }
-  return memoryStore;
+// 从环境变量读取配置
+function getDatabaseConfig(): DatabaseConfig {
+  const dbType = (process.env.DB_TYPE || 'mysql').toLowerCase() as 'mysql' | 'postgresql';
+  
+  return {
+    type: dbType,
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || (dbType === 'mysql' ? '3306' : '5432')),
+    database: process.env.DB_NAME || 'ai_chat',
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+  };
 }
 
 /**
@@ -244,10 +41,6 @@ export function getMemoryStore(): MemoryStore {
  */
 export async function getPool() {
   const config = getDatabaseConfig();
-  
-  if (config.type === 'memory') {
-    return { type: 'memory' as const, pool: null };
-  }
   
   if (config.type === 'mysql') {
     if (!mysqlPool) {
@@ -261,6 +54,7 @@ export async function getPool() {
         connectionLimit: 10,
         queueLimit: 0,
       });
+      console.log(`MySQL 连接池已创建: ${config.host}:${config.port}/${config.database}`);
     }
     return { type: 'mysql' as const, pool: mysqlPool };
   } else {
@@ -273,6 +67,7 @@ export async function getPool() {
         password: config.password,
         max: 10,
       });
+      console.log(`PostgreSQL 连接池已创建: ${config.host}:${config.port}/${config.database}`);
     }
     return { type: 'postgresql' as const, pool: pgPool };
   }
@@ -283,11 +78,6 @@ export async function getPool() {
  */
 export async function query(sql: string, params?: any[]) {
   const { type, pool } = await getPool();
-  
-  // 内存存储不支持直接 SQL 查询，使用 MemoryStore 的方法
-  if (type === 'memory') {
-    throw new Error('Memory store does not support raw SQL queries. Use MemoryStore methods instead.');
-  }
   
   if (type === 'mysql') {
     const [rows] = await (pool as mysql.Pool).execute(sql, params);
@@ -303,11 +93,6 @@ export async function query(sql: string, params?: any[]) {
  */
 export async function execute(sql: string, params?: any[]) {
   const { type, pool } = await getPool();
-  
-  // 内存存储不支持直接 SQL 执行，使用 MemoryStore 的方法
-  if (type === 'memory') {
-    throw new Error('Memory store does not support raw SQL execution. Use MemoryStore methods instead.');
-  }
   
   if (type === 'mysql') {
     const [result]: any = await (pool as mysql.Pool).execute(sql, params);
@@ -339,15 +124,29 @@ export async function closePool() {
 }
 
 /**
+ * 测试数据库连接
+ */
+export async function testConnection(): Promise<{ success: boolean; message: string }> {
+  try {
+    const config = getDatabaseConfig();
+    await query('SELECT 1');
+    return {
+      success: true,
+      message: `数据库连接成功: ${config.type}://${config.host}:${config.port}/${config.database}`
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `数据库连接失败: ${error.message}`
+    };
+  }
+}
+
+/**
  * 初始化数据库表
  */
 export async function initDatabase() {
   const config = getDatabaseConfig();
-  
-  if (config.type === 'memory') {
-    await getMemoryStore().init();
-    return;
-  }
   
   if (config.type === 'mysql') {
     await initMySQLTables();
@@ -360,30 +159,35 @@ export async function initDatabase() {
  * 初始化 MySQL 表
  */
 async function initMySQLTables() {
+  // Token 表 - 存储预生成的 Token
   const createTokensTable = `
     CREATE TABLE IF NOT EXISTS auth_tokens (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      token VARCHAR(255) NOT NULL UNIQUE COMMENT '预生成的认证token',
-      is_used BOOLEAN DEFAULT FALSE COMMENT '是否已被使用',
+      token VARCHAR(255) NOT NULL UNIQUE COMMENT '认证Token',
+      device_count INT DEFAULT 0 COMMENT '已激活设备数',
+      is_active BOOLEAN DEFAULT TRUE COMMENT '是否有效',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      used_at TIMESTAMP NULL,
-      INDEX idx_token (token)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='认证token表';
+      INDEX idx_token (token),
+      INDEX idx_is_active (is_active)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Token表';
   `;
 
-  const createUsersTable = `
-    CREATE TABLE IF NOT EXISTS users (
+  // 设备表 - 记录每个设备的激活信息
+  const createDevicesTable = `
+    CREATE TABLE IF NOT EXISTS devices (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      token VARCHAR(255) NOT NULL UNIQUE COMMENT '认证token',
-      machine_id VARCHAR(255) NOT NULL UNIQUE COMMENT '机器码',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+      token VARCHAR(255) NOT NULL COMMENT '使用的Token',
+      machine_id VARCHAR(255) NOT NULL COMMENT '机器码',
+      device_name VARCHAR(255) DEFAULT NULL COMMENT '设备名称',
+      last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后活跃时间',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '首次激活时间',
+      UNIQUE KEY uk_machine_id (machine_id),
       INDEX idx_token (token),
       INDEX idx_machine_id (machine_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
   `;
 
+  // 会话表
   const createSessionsTable = `
     CREATE TABLE IF NOT EXISTS sessions (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -398,6 +202,7 @@ async function initMySQLTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话表';
   `;
 
+  // 消息表
   const createMessagesTable = `
     CREATE TABLE IF NOT EXISTS messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -405,17 +210,16 @@ async function initMySQLTables() {
       role ENUM('user', 'assistant', 'system') NOT NULL COMMENT '角色',
       content TEXT NOT NULL COMMENT '消息内容',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_session_id (session_id),
-      FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+      INDEX idx_session_id (session_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息表';
   `;
 
   await query(createTokensTable);
-  await query(createUsersTable);
+  await query(createDevicesTable);
   await query(createSessionsTable);
   await query(createMessagesTable);
   
-  console.log('MySQL tables initialized successfully');
+  console.log('MySQL 表初始化成功');
 }
 
 /**
@@ -426,24 +230,25 @@ async function initPostgreSQLTables() {
     CREATE TABLE IF NOT EXISTS auth_tokens (
       id SERIAL PRIMARY KEY,
       token VARCHAR(255) NOT NULL UNIQUE,
-      is_used BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      used_at TIMESTAMP NULL
+      device_count INT DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_auth_tokens_is_active ON auth_tokens(is_active);
   `;
 
-  const createUsersTable = `
-    CREATE TABLE IF NOT EXISTS users (
+  const createDevicesTable = `
+    CREATE TABLE IF NOT EXISTS devices (
       id SERIAL PRIMARY KEY,
-      token VARCHAR(255) NOT NULL UNIQUE,
+      token VARCHAR(255) NOT NULL,
       machine_id VARCHAR(255) NOT NULL UNIQUE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      device_name VARCHAR(255),
       last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      is_active BOOLEAN DEFAULT TRUE
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE INDEX IF NOT EXISTS idx_users_token ON users(token);
-    CREATE INDEX IF NOT EXISTS idx_users_machine_id ON users(machine_id);
+    CREATE INDEX IF NOT EXISTS idx_devices_token ON devices(token);
+    CREATE INDEX IF NOT EXISTS idx_devices_machine_id ON devices(machine_id);
   `;
 
   const createSessionsTable = `
@@ -472,11 +277,11 @@ async function initPostgreSQLTables() {
   `;
 
   await query(createTokensTable);
-  await query(createUsersTable);
+  await query(createDevicesTable);
   await query(createSessionsTable);
   await query(createMessagesTable);
   
-  console.log('PostgreSQL tables initialized successfully');
+  console.log('PostgreSQL 表初始化成功');
 }
 
 export const Database = {
@@ -485,6 +290,6 @@ export const Database = {
   execute,
   closePool,
   initDatabase,
-  isMemoryStore,
-  getMemoryStore,
+  testConnection,
+  getDatabaseConfig,
 };

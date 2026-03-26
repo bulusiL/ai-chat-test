@@ -17,23 +17,6 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 使用内存存储
-    if (Database.isMemoryStore()) {
-      const store = Database.getMemoryStore();
-      const messages = await store.getMessagesBySessionId(sessionId);
-      
-      return NextResponse.json({
-        success: true,
-        messages: messages.map(m => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          created_at: m.created_at
-        }))
-      });
-    }
-
-    // 使用数据库
     const messages: any = await Database.query(
       `SELECT id, role, content, created_at 
        FROM messages 
@@ -51,7 +34,7 @@ export async function GET(request: NextRequest) {
     console.error('Get messages error:', error);
     return NextResponse.json({
       success: false,
-      error: '获取消息失败'
+      error: '获取消息失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
     }, { status: 500 });
   }
 }
@@ -79,18 +62,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 使用内存存储
-    if (Database.isMemoryStore()) {
-      const store = Database.getMemoryStore();
-      const messageId = await store.createMessage(sessionId, role as 'user' | 'assistant' | 'system', content);
-      
-      return NextResponse.json({
-        success: true,
-        messageId
-      });
-    }
-
-    // 使用数据库
     const result = await Database.execute(
       'INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
       [sessionId, role, content]
@@ -111,7 +82,7 @@ export async function POST(request: NextRequest) {
     console.error('Save message error:', error);
     return NextResponse.json({
       success: false,
-      error: '保存消息失败'
+      error: '保存消息失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
     }, { status: 500 });
   }
 }
@@ -132,20 +103,7 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 使用内存存储
-    if (Database.isMemoryStore()) {
-      const store = Database.getMemoryStore();
-      for (const msg of messages) {
-        await store.createMessage(sessionId, msg.role, msg.content);
-      }
-      
-      return NextResponse.json({
-        success: true,
-        count: messages.length
-      });
-    }
-
-    // 使用数据库
+    // 批量插入消息
     for (const msg of messages) {
       await Database.execute(
         'INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
@@ -168,7 +126,7 @@ export async function PUT(request: NextRequest) {
     console.error('Batch save messages error:', error);
     return NextResponse.json({
       success: false,
-      error: '批量保存消息失败'
+      error: '批量保存消息失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
     }, { status: 500 });
   }
 }
