@@ -23,7 +23,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  BookOpen,
+  Info
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import AuthScreen from './AuthScreen';
@@ -66,6 +68,7 @@ export default function ChatInterface() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [enableSearch, setEnableSearch] = useState(false);
+  const [enableKnowledge, setEnableKnowledge] = useState(true);  // 默认启用知识库
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -300,7 +303,8 @@ export default function ChatInterface() {
         body: JSON.stringify({ 
           message,
           history: messages.map(m => ({ role: m.role, content: m.content })),
-          enableSearch
+          enableSearch,
+          enableKnowledge
         })
       });
 
@@ -516,6 +520,22 @@ export default function ChatInterface() {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* 知识库开关 */}
+            <Button
+              variant={enableKnowledge ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEnableKnowledge(!enableKnowledge)}
+              className={enableKnowledge 
+                ? "bg-green-500 hover:bg-green-600" 
+                : isDarkMode 
+                  ? "border-slate-600 text-slate-300" 
+                  : "border-slate-300 text-slate-600"
+              }
+            >
+              <BookOpen className="w-4 h-4 mr-1" />
+              {enableKnowledge ? '知识库' : '无知识库'}
+            </Button>
+            
             {/* 联网搜索开关 */}
             <Button
               variant={enableSearch ? "default" : "outline"}
@@ -570,7 +590,13 @@ export default function ChatInterface() {
               <MessageSquare className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg font-medium mb-2">开始与 AI 对话吧</p>
               <p className="text-sm">
-                {enableSearch ? '联网搜索已开启，可获取实时信息' : '输入消息，AI 将实时回复'}
+                {enableKnowledge && enableSearch 
+                  ? '知识库 + 联网搜索已开启' 
+                  : enableKnowledge 
+                    ? '知识库已开启，可回答图书和学习相关问题' 
+                    : enableSearch 
+                      ? '联网搜索已开启，可获取实时信息' 
+                      : '输入消息，AI 将实时回复'}
               </p>
             </div>
           ) : (
@@ -690,7 +716,7 @@ export default function ChatInterface() {
             </div>
             
             <p className={`mt-2 text-xs text-center ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-              按 Enter 发送 · {enableSearch ? '联网搜索开启' : '联网搜索关闭'} · Ollama 本地模型
+              按 Enter 发送 · 知识库{enableKnowledge ? '开启' : '关闭'} · 搜索{enableSearch ? '开启' : '关闭'}
             </p>
           </div>
         </div>

@@ -1,10 +1,11 @@
 # AI Chat Assistant 🤖
 
-智能 AI 对话助手，基于 Next.js 16 + TypeScript + Ollama 本地模型
+智能 AI 对话助手，基于 Next.js 16 + TypeScript + Ollama 本地模型 + 知识库
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Ollama](https://img.shields.io/badge/Ollama-Local-green)
+![Knowledge](https://img.shields.io/badge/Knowledge-RAG-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## ✨ 功能特性
@@ -13,7 +14,14 @@
 - 💬 **Ollama 本地模型** - 支持所有 Ollama 模型，完全本地运行
 - 🌊 **流式输出** - 实时展示 AI 回复，打字机效果
 - 🔍 **联网搜索** - 一键开启联网搜索，获取实时信息
+- 📚 **知识库** - 内置图书推荐和学习辅导知识，确保回答准确性
 - 💾 **会话管理** - 多会话支持，独立保存对话记录
+
+### 知识库特性
+- 📖 **图书推荐** - 小学各年级阅读书目推荐
+- 📝 **学习方法** - 语文、数学、英语学习指导
+- 🎯 **准确回答** - 基于知识库回答，避免编造信息
+- 🛡️ **防幻觉** - 不确定时会明确说明，不会随意回答
 
 ### 认证系统
 - 🔐 **Token 认证** - 安全的 Token 认证机制
