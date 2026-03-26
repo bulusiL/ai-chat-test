@@ -8,12 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { 
   Send, 
-  Sparkles, 
+  Cpu, 
   User, 
-  Loader2, 
+  Loader2,
   AlertCircle,
   CheckCircle2,
-  Moon,
   Sun,
   Copy,
   Check,
@@ -22,17 +21,16 @@ import {
   MessageSquare,
   Search,
   ChevronLeft,
-  ChevronRight,
   LogOut,
   BookOpen,
   Zap,
-  Bot,
-  Menu
+  Menu,
+  Terminal,
+  Activity
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import AuthScreen from './AuthScreen';
 
-// 消息类型定义
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -41,7 +39,6 @@ interface Message {
   isStreaming?: boolean;
 }
 
-// 会话类型定义
 interface Session {
   session_id: string;
   title: string;
@@ -50,24 +47,17 @@ interface Session {
 }
 
 export default function ChatInterface() {
-  // 认证状态
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [machineId, setMachineId] = useState<string | null>(null);
-  
-  // 聊天状态
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // 会话状态
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  
-  // UI 状态
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true); // 默认深色模式
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [enableSearch, setEnableSearch] = useState(false);
   const [enableKnowledge, setEnableKnowledge] = useState(true);
@@ -75,11 +65,9 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 初始化
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = savedMode ? savedMode === 'true' : prefersDark;
+    const isDark = savedMode ? savedMode === 'true' : true; // 默认深色
     setIsDarkMode(isDark);
     document.documentElement.classList.toggle('dark', isDark);
 
@@ -379,83 +367,72 @@ export default function ChatInterface() {
     }
   };
 
-  // 如果未认证，显示认证界面
   if (!isAuthenticated) {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} isDarkMode={isDarkMode} />;
   }
 
-  // 主聊天界面
   return (
-    <div className={`flex h-screen transition-all duration-500 ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950' 
-        : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'
-    }`}>
+    <div className="flex h-screen bg-background grid-bg overflow-hidden">
       {/* 侧边栏 */}
       <div className={`flex-shrink-0 border-r transition-all duration-300 ease-in-out ${
         showSidebar ? 'w-72' : 'w-0'
-      } ${isDarkMode ? 'bg-slate-900/80 border-slate-800/50' : 'bg-white/80 border-slate-200/50'} backdrop-blur-xl`}>
+      } bg-sidebar border-sidebar-border`}>
         {showSidebar && (
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col scanline">
             {/* Logo 区域 */}
-            <div className={`p-5 border-b ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200/50'}`}>
+            <div className="p-5 border-b border-sidebar-border">
               <div className="flex items-center gap-3 mb-5">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                    <Sparkles className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center glow">
+                    <Cpu className="w-5 h-5 text-white" />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-slate-900"></div>
+                  <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-glow"></div>
                 </div>
                 <div>
-                  <h1 className="font-bold text-lg gradient-text">AI Chat</h1>
-                  <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>智能学习助手</p>
+                  <h1 className="font-bold text-lg neon-text">AI Chat</h1>
+                  <p className="text-xs text-muted-foreground font-mono">v2.0.0</p>
                 </div>
               </div>
               
               <Button
                 onClick={createNewSession}
-                className={`w-full h-11 btn-hover ${
-                  isDarkMode 
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500' 
-                    : 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600'
-                } text-white shadow-lg shadow-purple-500/25`}
+                className="w-full h-10 btn-tech bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                新建对话
+                新建会话
               </Button>
             </div>
 
             {/* 会话列表 */}
             <div className="flex-1 overflow-y-auto p-3">
               {sessions.length === 0 ? (
-                <div className={`text-center py-12 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
-                    <MessageSquare className="w-8 h-8 opacity-50" />
+                <div className="text-center py-12">
+                  <div className="w-14 h-14 mx-auto mb-4 rounded-lg border border-border bg-secondary/50 flex items-center justify-center">
+                    <Terminal className="w-7 h-7 text-muted-foreground" />
                   </div>
-                  <p className="text-sm font-medium">暂无对话记录</p>
-                  <p className="text-xs mt-1 opacity-70">开始你的第一次对话吧</p>
+                  <p className="text-sm font-medium text-muted-foreground">无会话记录</p>
+                  <p className="text-xs mt-1 text-muted-foreground/70">开始新对话</p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  {sessions.map((session) => (
+                  {sessions.map((session, index) => (
                     <div
                       key={session.session_id}
                       onClick={() => loadMessages(session.session_id)}
-                      className={`group relative flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                      className={`group relative flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border ${
                         currentSessionId === session.session_id
-                          ? isDarkMode 
-                            ? 'bg-purple-600/20 text-white shadow-lg shadow-purple-500/10' 
-                            : 'bg-purple-50 text-purple-900 shadow-lg shadow-purple-500/5'
-                          : isDarkMode
-                            ? 'hover:bg-slate-800/50 text-slate-300'
-                            : 'hover:bg-slate-50 text-slate-600'
+                          ? 'bg-indigo-500/10 border-indigo-500/30 text-foreground' 
+                          : 'hover:bg-secondary/50 border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{session.title}</p>
-                        <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {new Date(session.updated_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
-                        </p>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xs font-mono text-indigo-400">{String(index + 1).padStart(2, '0')}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{session.title}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {new Date(session.updated_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
@@ -464,7 +441,7 @@ export default function ChatInterface() {
                           e.stopPropagation();
                           deleteSession(session.session_id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 rounded-lg"
+                        className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 hover:bg-destructive/20 hover:text-destructive"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -475,18 +452,18 @@ export default function ChatInterface() {
             </div>
 
             {/* 底部操作 */}
-            <div className={`p-4 border-t ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200/50'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>深色模式</span>
-                <Switch checked={isDarkMode} onCheckedChange={toggleDarkMode} />
+            <div className="p-4 border-t border-sidebar-border space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-medium text-muted-foreground">LIGHT MODE</span>
+                <Switch checked={!isDarkMode} onCheckedChange={toggleDarkMode} />
               </div>
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className={`w-full justify-start ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+                className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-secondary/50"
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                退出登录
+                退出系统
               </Button>
             </div>
           </div>
@@ -494,78 +471,65 @@ export default function ChatInterface() {
       </div>
 
       {/* 主内容区 */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         {/* 头部 */}
-        <div className={`flex items-center justify-between px-4 sm:px-6 py-4 border-b ${
-          isDarkMode ? 'bg-slate-900/50 border-slate-800/50' : 'bg-white/50 border-slate-200/50'
-        } backdrop-blur-xl`}>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border bg-background/80 backdrop-blur-sm z-10">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowSidebar(!showSidebar)}
-              className={`h-9 w-9 p-0 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600'}`}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
             >
               {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
             
-            <div className="hidden sm:flex items-center gap-2">
-              <Badge 
-                variant="secondary"
-                className={`gap-1.5 px-3 py-1 ${
-                  isConnected 
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                }`}
-              >
-                {isConnected ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                {isConnected ? '已连接' : '离线'}
-              </Badge>
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Activity className={`w-4 h-4 ${isConnected ? 'text-emerald-500' : 'text-destructive'}`} />
+                <span className="text-xs font-mono text-muted-foreground">
+                  {isConnected ? 'ONLINE' : 'OFFLINE'}
+                </span>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* 知识库开关 */}
+          <div className="flex items-center gap-2">
             <Button
               variant={enableKnowledge ? "default" : "outline"}
               size="sm"
               onClick={() => setEnableKnowledge(!enableKnowledge)}
-              className={`h-8 gap-1.5 ${
+              className={`h-8 gap-1.5 font-mono text-xs ${
                 enableKnowledge 
-                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25' 
-                  : isDarkMode 
-                    ? 'border-slate-700 text-slate-400' 
-                    : 'border-slate-300 text-slate-600'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white glow' 
+                  : 'border-border text-muted-foreground'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">知识库</span>
+              <span className="hidden sm:inline">KNOWLEDGE</span>
             </Button>
             
-            {/* 联网搜索开关 */}
             <Button
               variant={enableSearch ? "default" : "outline"}
               size="sm"
               onClick={() => setEnableSearch(!enableSearch)}
-              className={`h-8 gap-1.5 ${
+              className={`h-8 gap-1.5 font-mono text-xs ${
                 enableSearch 
-                  ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/25' 
-                  : isDarkMode 
-                    ? 'border-slate-700 text-slate-400' 
-                    : 'border-slate-300 text-slate-600'
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white glow' 
+                  : 'border-border text-muted-foreground'
               }`}
             >
               <Search className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">搜索</span>
+              <span className="hidden sm:inline">SEARCH</span>
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleDarkMode}
-              className={`h-8 w-8 p-0 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
             >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <Sun className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -575,80 +539,82 @@ export default function ChatInterface() {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
               <div className="relative mb-8">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-purple-500/30 animate-float">
-                  <Bot className="w-10 h-10 text-white" />
+                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center glow animate-float">
+                  <Cpu className="w-10 h-10 text-white" />
                 </div>
-                <div className="absolute -inset-2 rounded-3xl bg-gradient-to-br from-purple-500/20 to-indigo-600/20 animate-pulse-ring"></div>
+                <div className="absolute -inset-4 rounded-2xl border border-indigo-500/20 animate-spin-slow"></div>
+                <div className="absolute -inset-8 rounded-3xl border border-purple-500/10"></div>
               </div>
               
-              <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                你好，我是你的学习助手
+              <h2 className="text-2xl font-bold mb-2 neon-text">
+                SYSTEM READY
               </h2>
-              <p className={`text-center max-w-md mb-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                我可以帮你推荐图书、解答学习问题，让我们一起开始吧！
+              <p className="text-center max-w-md mb-8 text-muted-foreground font-mono text-sm">
+                AI 学习助手已就绪 · 等待输入指令
               </p>
               
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
                 {[
-                  { icon: BookOpen, text: '推荐几本适合五年级的书' },
-                  { icon: Zap, text: '如何提高数学成绩？' },
-                  { icon: Search, text: '今天北京天气怎么样？' },
+                  { icon: BookOpen, text: '推荐五年级读物', cmd: 'BOOK_RECOMMEND' },
+                  { icon: Zap, text: '数学学习方法', cmd: 'MATH_TIPS' },
+                  { icon: Search, text: '查询天气', cmd: 'WEATHER' },
                 ].map((item, index) => (
                   <button
                     key={index}
                     onClick={() => setInputValue(item.text)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all duration-200 card-hover ${
-                      isDarkMode 
-                        ? 'bg-slate-800/50 hover:bg-slate-800 text-slate-300' 
-                        : 'bg-white hover:bg-slate-50 text-slate-600 shadow-sm'
-                    }`}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-indigo-500/30 transition-all duration-200 text-left group"
                   >
-                    <item.icon className="w-4 h-4" />
-                    {item.text}
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
+                      <item.icon className="w-4 h-4 text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.text}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{item.cmd}</p>
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-6">
+            <div className="max-w-3xl mx-auto space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
                 >
                   {/* 头像 */}
-                  <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
                     message.role === 'user'
-                      ? isDarkMode ? 'bg-slate-700' : 'bg-slate-200'
-                      : 'bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/25'
+                      ? 'bg-secondary border border-border'
+                      : 'bg-gradient-to-br from-indigo-500 to-purple-600 glow'
                   }`}>
                     {message.role === 'user' ? (
-                      <User className={`w-5 h-5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`} />
+                      <User className="w-4 h-4 text-muted-foreground" />
                     ) : (
-                      <Sparkles className="w-5 h-5 text-white" />
+                      <Cpu className="w-4 h-4 text-white" />
                     )}
                   </div>
                   
                   {/* 消息内容 */}
-                  <div className={`max-w-[85%] sm:max-w-[75%] ${message.role === 'user' ? '' : 'min-w-[200px]'}`}>
+                  <div className={`max-w-[85%] sm:max-w-[75%] ${message.role === 'assistant' ? 'min-w-[200px]' : ''}`}>
                     <Card className={`message-bubble overflow-hidden ${
                       message.role === 'user'
-                        ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25'
-                        : isDarkMode 
-                          ? 'bg-slate-800/80 border-slate-700/50' 
-                          : 'bg-white border-slate-200/50 shadow-lg'
+                        ? 'bg-indigo-600 text-white'
+                        : 'tech-card neon-border'
                     }`}>
                       <div className={`px-4 py-3 ${
                         message.role === 'user' 
                           ? 'text-white' 
-                          : isDarkMode ? 'text-slate-200' : 'text-slate-800'
+                          : 'text-foreground'
                       }`}>
                         {message.role === 'user' ? (
-                          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                          <div className="whitespace-pre-wrap break-words font-mono text-sm">{message.content}</div>
                         ) : (
                           <div>
-                            {message.content ? <MarkdownRenderer content={message.content} /> : (
-                              <div className="flex items-center gap-1 animate-typing">
+                            {message.content ? (
+                              <MarkdownRenderer content={message.content} />
+                            ) : (
+                              <div className="flex items-center gap-2 text-indigo-400 animate-typing font-mono text-sm">
                                 <span className="w-2 h-2 rounded-full bg-current"></span>
                                 <span className="w-2 h-2 rounded-full bg-current"></span>
                                 <span className="w-2 h-2 rounded-full bg-current"></span>
@@ -665,21 +631,17 @@ export default function ChatInterface() {
                         variant="ghost"
                         size="sm"
                         onClick={() => copyMessage(message.id, message.content)}
-                        className={`h-6 px-2 text-xs ${
-                          isDarkMode 
-                            ? 'text-slate-500 hover:text-slate-300' 
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground font-mono"
                       >
                         {copiedId === message.id ? (
                           <>
                             <Check className="w-3 h-3 mr-1" />
-                            已复制
+                            COPIED
                           </>
                         ) : (
                           <>
                             <Copy className="w-3 h-3 mr-1" />
-                            复制
+                            COPY
                           </>
                         )}
                       </Button>
@@ -693,17 +655,13 @@ export default function ChatInterface() {
         </div>
 
         {/* 输入区域 */}
-        <div className={`px-4 sm:px-6 py-4 border-t ${
-          isDarkMode ? 'bg-slate-900/50 border-slate-800/50' : 'bg-white/50 border-slate-200/50'
-        } backdrop-blur-xl`}>
+        <div className="px-4 sm:px-6 py-4 border-t border-border bg-background/80 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto">
             {error && (
-              <div className={`mb-3 p-3 rounded-xl border ${
-                isDarkMode ? 'bg-red-900/20 border-red-800/50 text-red-400' : 'bg-red-50 border-red-200 text-red-600'
-              }`}>
-                <p className="text-sm flex items-center gap-2">
+              <div className="mb-3 p-3 rounded-lg border border-destructive/30 bg-destructive/10">
+                <p className="text-sm flex items-center gap-2 text-destructive font-mono">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  {error}
+                  <span>ERROR: {error}</span>
                 </p>
               </div>
             )}
@@ -714,42 +672,39 @@ export default function ChatInterface() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={enableSearch ? "问我任何问题..." : "输入消息..."}
+                placeholder="INPUT MESSAGE..."
                 disabled={isLoading}
-                className={`w-full h-12 sm:h-14 pl-4 pr-14 text-base rounded-xl input-glow transition-all duration-200 ${
-                  isDarkMode 
-                    ? 'border-slate-700/50 focus:border-purple-500/50 bg-slate-800/50 text-white placeholder:text-slate-500' 
-                    : 'border-slate-200/50 focus:border-purple-500/50 bg-white text-slate-900 placeholder:text-slate-400'
-                }`}
+                className="w-full h-12 pl-4 pr-14 text-base font-mono rounded-lg input-tech bg-secondary/50 border-border text-foreground placeholder:text-muted-foreground"
               />
               <Button
                 onClick={sendMessage}
                 disabled={isLoading || !inputValue.trim()}
-                className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-10 w-10 p-0 rounded-lg btn-hover ${
+                className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 p-0 rounded-lg btn-tech ${
                   isLoading || !inputValue.trim()
-                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400'
-                    : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25'
+                    ? 'bg-secondary text-muted-foreground'
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white glow'
                 }`}
               >
                 {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4" />
                 )}
               </Button>
             </div>
             
-            <div className="flex items-center justify-center gap-4 mt-3">
-              <div className={`flex items-center gap-1.5 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${enableKnowledge ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                知识库 {enableKnowledge ? '开启' : '关闭'}
+            <div className="flex items-center justify-center gap-4 mt-3 font-mono text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${enableKnowledge ? 'bg-emerald-500' : 'bg-muted'}`}></span>
+                KB {enableKnowledge ? 'ON' : 'OFF'}
               </div>
-              <div className={`flex items-center gap-1.5 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${enableSearch ? 'bg-purple-500' : 'bg-slate-400'}`}></span>
-                搜索 {enableSearch ? '开启' : '关闭'}
+              <div className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${enableSearch ? 'bg-indigo-500' : 'bg-muted'}`}></span>
+                SEARCH {enableSearch ? 'ON' : 'OFF'}
               </div>
-              <div className={`text-xs ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
-                Enter 发送
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                ENTER TO SEND
               </div>
             </div>
           </div>
