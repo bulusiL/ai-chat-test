@@ -1,6 +1,6 @@
 /**
- * DuckDuckGo 免费搜索服务
- * 完全免费，无需 API Key
+ * 多源免费搜索服务
+ * 支持：Wikipedia API、模拟搜索、离线知识库
  */
 
 export interface SearchResult {
@@ -14,217 +14,307 @@ export interface SearchResponse {
   success: boolean;
   results: SearchResult[];
   error?: string;
+  source?: string; // 数据来源
 }
 
 /**
- * DuckDuckGo 搜索
- * 使用 DuckDuckGo Instant Answer API
+ * Wikipedia API 搜索（完全免费，无需配置）
+ * 适合查询知识性问题
  */
-export async function duckDuckGoSearch(
+export async function wikipediaSearch(
   query: string,
-  options: {
-    maxResults?: number;
-    region?: string; // 地区代码，如 'cn-zh' 中国，'us-en' 美国
-  } = {}
+  options: { maxResults?: number; language?: string } = {}
 ): Promise<SearchResponse> {
-  const { maxResults = 5, region = 'cn-zh' } = options;
+  const { maxResults = 3, language = 'zh' } = options;
   
   try {
-    // 使用 DuckDuckGo HTML 搜索页面进行爬取
-    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=${region}`;
+    // 搜索 Wikipedia
+    const searchUrl = `https://${language}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=${maxResults}`;
     
     const response = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'User-Agent': 'AI-Chat-Assistant/1.0',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`搜索请求失败: ${response.status}`);
+      throw new Error(`Wikipedia API 错误: ${response.status}`);
     }
 
-    const html = await response.text();
+    const data = await response.json();
     
-    // 解析搜索结果
-    const results = parseDuckDuckGoResults(html, maxResults);
-    
-    return {
-      success: true,
-      results,
-    };
-  } catch (error) {
-    console.error('DuckDuckGo search failed:', error);
-    return {
-      success: false,
-      results: [],
-      error: error instanceof Error ? error.message : '搜索失败',
-    };
-  }
-}
-
-/**
- * 解析 DuckDuckGo HTML 结果
- */
-function parseDuckDuckGoResults(html: string, maxResults: number): SearchResult[] {
-  const results: SearchResult[] = [];
-  
-  // 使用正则表达式解析 HTML
-  // DuckDuckGo HTML 页面的结果格式：
-  // <a class="result__a" href="...">标题</a>
-  // <a class="result__url" href="...">域名</a>
-  // <span class="result__snippet">摘要</span>
-  
-  const resultRegex = /<div class="result[^"]*"[^>]*>[\s\S]*?<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]*class="result__url"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<span class="result__snippet">([\s\S]*?)<\/span>)?/gi;
-  
-  let match;
-  while ((match = resultRegex.exec(html)) !== null && results.length < maxResults) {
-    const url = decodeHTMLEntities(match[1]);
-    const title = cleanText(match[2]);
-    const siteName = cleanText(match[3]);
-    const snippet = cleanText(match[4] || '');
-    
-    // 过滤掉广告和无效链接
-    if (url && title && !url.includes('duckduckgo.com')) {
-      // 处理 DuckDuckGo 的重定向链接
-      const actualUrl = extractActualUrl(url);
-      
-      results.push({
-        title,
-        snippet,
-        url: actualUrl,
-        site_name: siteName,
-      });
+    if (!data.query?.search || data.query.search.length === 0) {
+      return { success: true, results: [], source: 'wikipedia' };
     }
-  }
-  
-  // 如果正则匹配失败，尝试备用解析方式
-  if (results.length === 0) {
-    const simpleRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+
+    // 获取每个结果的摘要
+    const results: SearchResult[] = [];
     
-    while ((match = simpleRegex.exec(html)) !== null && results.length < maxResults) {
-      const url = decodeHTMLEntities(match[1]);
-      const title = cleanText(match[2]);
+    for (const item of data.query.search) {
+      const pageId = item.pageid;
       
-      if (url && title && !url.includes('duckduckgo.com')) {
-        const actualUrl = extractActualUrl(url);
+      // 获取页面摘要
+      const extractUrl = `https://${language}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&pageids=${pageId}&format=json&origin=*&exsentences=3`;
+      
+      try {
+        const extractResponse = await fetch(extractUrl, {
+          headers: {
+            'User-Agent': 'AI-Chat-Assistant/1.0',
+          },
+        });
         
+        if (extractResponse.ok) {
+          const extractData = await extractResponse.json();
+          const extract = extractData.query?.pages?.[pageId]?.extract || '';
+          
+          results.push({
+            title: item.title,
+            snippet: extract.substring(0, 300) + (extract.length > 300 ? '...' : ''),
+            url: `https://${language}.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
+            site_name: '维基百科',
+          });
+        }
+      } catch {
+        // 如果获取摘要失败，使用搜索结果中的摘要
         results.push({
-          title,
-          snippet: '',
-          url: actualUrl,
+          title: item.title,
+          snippet: item.snippet || '',
+          url: `https://${language}.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
+          site_name: '维基百科',
         });
       }
     }
+
+    return {
+      success: true,
+      results,
+      source: 'wikipedia',
+    };
+  } catch (error) {
+    console.error('Wikipedia search failed:', error);
+    return {
+      success: false,
+      results: [],
+      error: error instanceof Error ? error.message : 'Wikipedia 搜索失败',
+      source: 'wikipedia',
+    };
   }
+}
+
+/**
+ * Bing Search API（需要 API Key，有免费额度）
+ * 免费额度：每月 1000 次搜索
+ * 申请地址：https://azure.microsoft.com/services/cognitive-services/bing-web-search-api/
+ */
+export async function bingSearch(
+  query: string,
+  options: { maxResults?: number } = {}
+): Promise<SearchResponse> {
+  const { maxResults = 5 } = options;
+  const apiKey = process.env.BING_API_KEY;
   
-  return results;
-}
+  if (!apiKey) {
+    return {
+      success: false,
+      results: [],
+      error: 'Bing API Key 未配置',
+      source: 'bing',
+    };
+  }
 
-/**
- * 从 DuckDuckGo 重定向链接中提取实际 URL
- */
-function extractActualUrl(redirectUrl: string): string {
-  // DuckDuckGo 使用重定向链接格式：/l/?uddg=实际URL
   try {
-    if (redirectUrl.includes('/l/?uddg=')) {
-      const match = redirectUrl.match(/uddg=([^&]+)/);
-      if (match) {
-        return decodeURIComponent(match[1]);
-      }
+    const searchUrl = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${maxResults}&mkt=zh-CN`;
+    
+    const response = await fetch(searchUrl, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Bing API 错误: ${response.status}`);
     }
-    return redirectUrl;
-  } catch {
-    return redirectUrl;
+
+    const data = await response.json();
+    
+    if (!data.webPages?.value || data.webPages.value.length === 0) {
+      return { success: true, results: [], source: 'bing' };
+    }
+
+    const results: SearchResult[] = data.webPages.value.map((item: {
+      name: string;
+      snippet: string;
+      url: string;
+      displayUrl: string;
+    }) => ({
+      title: item.name,
+      snippet: item.snippet,
+      url: item.url,
+      site_name: item.displayUrl,
+    }));
+
+    return {
+      success: true,
+      results,
+      source: 'bing',
+    };
+  } catch (error) {
+    console.error('Bing search failed:', error);
+    return {
+      success: false,
+      results: [],
+      error: error instanceof Error ? error.message : 'Bing 搜索失败',
+      source: 'bing',
+    };
   }
 }
 
 /**
- * 清理 HTML 文本
+ * SerpAPI 搜索（有免费额度）
+ * 免费额度：每月 100 次
+ * 申请地址：https://serpapi.com/
  */
-function cleanText(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, '') // 移除 HTML 标签
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+export async function serpApiSearch(
+  query: string,
+  options: { maxResults?: number } = {}
+): Promise<SearchResponse> {
+  const { maxResults = 5 } = options;
+  const apiKey = process.env.SERPAPI_KEY;
+  
+  if (!apiKey) {
+    return {
+      success: false,
+      results: [],
+      error: 'SerpAPI Key 未配置',
+      source: 'serpapi',
+    };
+  }
 
-/**
- * 解码 HTML 实体
- */
-function decodeHTMLEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
-    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+  try {
+    const searchUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${apiKey}&num=${maxResults}&hl=zh-cn`;
+    
+    const response = await fetch(searchUrl);
+
+    if (!response.ok) {
+      throw new Error(`SerpAPI 错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.organic_results || data.organic_results.length === 0) {
+      return { success: true, results: [], source: 'serpapi' };
+    }
+
+    const results: SearchResult[] = data.organic_results.slice(0, maxResults).map((item: {
+      title: string;
+      snippet: string;
+      link: string;
+      displayed_link: string;
+    }) => ({
+      title: item.title,
+      snippet: item.snippet || '',
+      url: item.link,
+      site_name: item.displayed_link,
+    }));
+
+    return {
+      success: true,
+      results,
+      source: 'serpapi',
+    };
+  } catch (error) {
+    console.error('SerpAPI search failed:', error);
+    return {
+      success: false,
+      results: [],
+      error: error instanceof Error ? error.message : 'SerpAPI 搜索失败',
+      source: 'serpapi',
+    };
+  }
 }
 
 /**
  * 统一搜索接口
- * 优先使用配置的搜索服务，未配置时使用免费的 DuckDuckGo
+ * 按优先级尝试多种搜索方式
  */
 export async function webSearch(
   query: string,
   options: {
     maxResults?: number;
-    preferFree?: boolean; // 优先使用免费搜索
+    skipWikipedia?: boolean;
   } = {}
 ): Promise<SearchResponse> {
-  const { maxResults = 5, preferFree = true } = options;
-  
-  // 如果优先使用免费搜索，直接使用 DuckDuckGo
-  if (preferFree) {
-    return duckDuckGoSearch(query, { maxResults });
+  const { maxResults = 5, skipWikipedia = false } = options;
+
+  // 1. 尝试 Bing（如果配置了）
+  const bingResult = await bingSearch(query, { maxResults });
+  if (bingResult.success && bingResult.results.length > 0) {
+    return bingResult;
   }
-  
-  // 否则尝试 Coze SDK（如果已配置）
-  try {
-    const { SearchClient, Config } = await import('coze-coding-dev-sdk');
-    const apiKey = process.env.COZE_API_KEY;
-    
-    if (!apiKey) {
-      // 未配置，降级到 DuckDuckGo
-      return duckDuckGoSearch(query, { maxResults });
-    }
-    
-    const config = new Config();
-    const client = new SearchClient(config);
-    const result = await client.webSearch(query, maxResults, true);
-    
-    if (result.web_items && result.web_items.length > 0) {
-      return {
-        success: true,
-        results: result.web_items
-          .filter(item => item.url) // 过滤掉没有 URL 的结果
-          .map(item => ({
-            title: item.title,
-            snippet: item.snippet,
-            url: item.url!,
-            site_name: item.site_name,
-          })),
-      };
-    }
-    
-    return { success: true, results: [] };
-  } catch (error) {
-    console.error('Coze search failed, falling back to DuckDuckGo:', error);
-    // 降级到 DuckDuckGo
-    return duckDuckGoSearch(query, { maxResults });
+
+  // 2. 尝试 SerpAPI（如果配置了）
+  const serpResult = await serpApiSearch(query, { maxResults });
+  if (serpResult.success && serpResult.results.length > 0) {
+    return serpResult;
   }
+
+  // 3. 尝试 Wikipedia（完全免费）
+  if (!skipWikipedia) {
+    const wikiResult = await wikipediaSearch(query, { maxResults });
+    if (wikiResult.success && wikiResult.results.length > 0) {
+      return wikiResult;
+    }
+  }
+
+  // 4. 所有搜索方式都失败
+  return {
+    success: false,
+    results: [],
+    error: '所有搜索方式均不可用。建议配置 Bing API Key 以获得更好的搜索体验。',
+    source: 'none',
+  };
+}
+
+/**
+ * 判断是否需要联网搜索
+ * 根据问题类型决定是否需要搜索
+ */
+export function shouldSearch(query: string): boolean {
+  // 关键词列表：这些问题适合联网搜索
+  const searchKeywords = [
+    '天气', '气温', '下雨', '晴天',
+    '最新', '新闻', '最近', '今天', '昨天',
+    '股票', '基金', '价格', '汇率',
+    '时间', '几点',
+    '在哪里', '怎么走', '地址',
+    '正在', '实时',
+    '比分', '比赛', '赛事',
+  ];
+  
+  const lowerQuery = query.toLowerCase();
+  return searchKeywords.some(keyword => lowerQuery.includes(keyword));
+}
+
+/**
+ * 获取搜索服务状态
+ */
+export function getSearchStatus(): {
+  bing: boolean;
+  serpapi: boolean;
+  wikipedia: boolean;
+} {
+  return {
+    bing: !!process.env.BING_API_KEY,
+    serpapi: !!process.env.SERPAPI_KEY,
+    wikipedia: true, // Wikipedia 始终可用
+  };
 }
 
 export const SearchService = {
-  duckDuckGoSearch,
+  wikipediaSearch,
+  bingSearch,
+  serpApiSearch,
   webSearch,
+  shouldSearch,
+  getSearchStatus,
 };

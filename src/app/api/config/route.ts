@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server';
-import { isWebSearchConfigured } from '@/lib/ollama';
+import { getSearchStatus } from '@/lib/search';
 
 /**
  * GET /api/config
  * 获取系统配置状态
  */
 export async function GET() {
+  const searchStatus = getSearchStatus();
+  
   return NextResponse.json({
     success: true,
     data: {
-      webSearchEnabled: isWebSearchConfigured(),
-      // 可以添加其他配置状态
+      search: {
+        bing: searchStatus.bing,
+        serpapi: searchStatus.serpapi,
+        wikipedia: searchStatus.wikipedia,
+        available: searchStatus.bing || searchStatus.serpapi || searchStatus.wikipedia,
+      },
     }
   });
 }

@@ -321,9 +321,7 @@ export async function chat(
 
 /**
  * 带联网搜索的对话
- * 支持两种搜索方式：
- * 1. DuckDuckGo（免费，默认）
- * 2. Coze SDK（需要 API Key）
+ * 支持多种搜索方式，优先使用免费的 Wikipedia
  */
 export async function* streamChatWithSearch(
   messages: OllamaMessage[],
@@ -332,27 +330,36 @@ export async function* streamChatWithSearch(
     model?: string;
     baseUrl?: string;
     searchCount?: number;
-    useFreeSearch?: boolean; // 是否使用免费搜索（默认 true）
   } = {}
 ): AsyncGenerator<string, void, unknown> {
-  const { model = DEFAULT_MODEL, baseUrl = DEFAULT_OLLAMA_URL, searchCount = 5, useFreeSearch = true } = options;
+  const { model = DEFAULT_MODEL, baseUrl = DEFAULT_OLLAMA_URL, searchCount = 5 } = options;
 
   // 1. 联网搜索
   let searchContext = '';
-  let searchSuccess = false;
+  let searchSource = '';
   
-  // 优先使用免费搜索
-  if (useFreeSearch) {
-    try {
-      const { duckDuckGoSearch } = await import('./search');
+  try {
+    const { webSearch, shouldSearch, getSearchStatus } = await import('./search');
+    
+    // 检查是否需要搜索
+    if (!shouldSearch(searchQuery)) {
+      yield '💡 这个问题可能不需要联网搜索，我将使用知识库回答。\n\n';
+    } else {
+      // 显示搜索状态
+      const status = getSearchStatus();
+      const availableServices = [];
+      if (status.bing) availableServices.push('Bing');
+      if (status.serpapi) availableServices.push('SerpAPI');
+      availableServices.push('Wikipedia');
       
-      yield '🔍 正在联网搜索...\n\n';
+      yield `🔍 正在联网搜索...（可用服务: ${availableServices.join(', ')}）\n\n`;
       
-      const result = await duckDuckGoSearch(searchQuery, { maxResults: searchCount });
+      const result = await webSearch(searchQuery, { maxResults: searchCount });
       
       if (result.success && result.results.length > 0) {
-        searchSuccess = true;
+        searchSource = result.source || '';
         searchContext = '\n\n=== 联网搜索结果 ===\n';
+        searchContext += `\n来源: ${searchSource}\n`;
         searchContext += '\n找到以下相关信息:\n';
         
         result.results.forEach((item, index) => {
@@ -368,56 +375,14 @@ export async function* streamChatWithSearch(
         
         searchContext += '\n=== 搜索结果结束 ===\n\n';
       } else if (!result.success) {
-        yield `⚠️ 搜索失败: ${result.error}\n\n`;
+        yield `⚠️ ${result.error || '搜索失败'}\n\n`;
       } else {
         yield '⚠️ 未找到相关搜索结果\n\n';
       }
-    } catch (error) {
-      console.error('DuckDuckGo search failed:', error);
-      yield '⚠️ 联网搜索暂时不可用，请稍后重试\n\n';
     }
-  } else {
-    // 使用 Coze SDK（需要配置）
-    if (!isWebSearchConfigured()) {
-      yield '⚠️ 联网搜索功能未配置。如需使用 Coze 搜索，请在 .env 文件中配置 COZE_API_KEY。\n\n';
-    } else {
-      try {
-        const { SearchClient, Config } = await import('coze-coding-dev-sdk');
-        
-        yield '🔍 正在联网搜索...\n\n';
-        
-        const searchConfig = new Config();
-        const searchClient = new SearchClient(searchConfig);
-        const searchResult = await searchClient.webSearch(searchQuery, searchCount, true);
-        
-        if (searchResult.web_items && searchResult.web_items.length > 0) {
-          searchSuccess = true;
-          searchContext = '\n\n=== 联网搜索结果 ===\n';
-          
-          if (searchResult.summary) {
-            searchContext += `\n摘要: ${searchResult.summary}\n`;
-          }
-          
-          searchContext += '\n相关网页:\n';
-          searchResult.web_items.forEach((item, index) => {
-            searchContext += `\n${index + 1}. ${item.title}\n`;
-            searchContext += `   来源: ${item.site_name}\n`;
-            searchContext += `   摘要: ${item.snippet}\n`;
-            searchContext += `   链接: ${item.url}\n`;
-          });
-          
-          searchContext += '\n=== 搜索结果结束 ===\n\n';
-        }
-      } catch (error) {
-        console.error('Coze search failed:', error);
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (errorMsg.includes('Invalid URL')) {
-          yield '⚠️ 联网搜索配置无效，请检查环境变量。\n\n';
-        } else {
-          yield '⚠️ 联网搜索暂时不可用，请稍后重试。\n\n';
-        }
-      }
-    }
+  } catch (error) {
+    console.error('Web search failed:', error);
+    yield '⚠️ 联网搜索暂时不可用，将使用知识库回答\n\n';
   }
 
   // 2. 构建系统提示词
