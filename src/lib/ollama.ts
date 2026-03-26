@@ -321,7 +321,9 @@ export async function chat(
 
 /**
  * 带联网搜索的对话
- * 注意：需要配置 coze-coding-dev-sdk
+ * 支持两种搜索方式：
+ * 1. DuckDuckGo（免费，默认）
+ * 2. Coze SDK（需要 API Key）
  */
 export async function* streamChatWithSearch(
   messages: OllamaMessage[],
@@ -330,63 +332,116 @@ export async function* streamChatWithSearch(
     model?: string;
     baseUrl?: string;
     searchCount?: number;
+    useFreeSearch?: boolean; // 是否使用免费搜索（默认 true）
   } = {}
 ): AsyncGenerator<string, void, unknown> {
-  const { model = DEFAULT_MODEL, baseUrl = DEFAULT_OLLAMA_URL, searchCount = 5 } = options;
+  const { model = DEFAULT_MODEL, baseUrl = DEFAULT_OLLAMA_URL, searchCount = 5, useFreeSearch = true } = options;
 
-  // 1. 尝试联网搜索
+  // 1. 联网搜索
   let searchContext = '';
+  let searchSuccess = false;
   
-  // 检查 SDK 是否已配置
-  if (!isWebSearchConfigured()) {
-    console.log('Web search SDK not configured, skipping web search');
-    yield '⚠️ 联网搜索功能未配置。如需使用联网搜索，请在 .env 文件中配置 COZE_API_KEY。\n\n';
-  } else {
+  // 优先使用免费搜索
+  if (useFreeSearch) {
     try {
-      const { SearchClient, Config } = await import('coze-coding-dev-sdk');
-      const searchConfig = new Config();
-      const searchClient = new SearchClient(searchConfig);
+      const { duckDuckGoSearch } = await import('./search');
       
-      const searchResult = await searchClient.webSearch(searchQuery, searchCount, true);
+      yield '🔍 正在联网搜索...\n\n';
       
-      if (searchResult.web_items && searchResult.web_items.length > 0) {
+      const result = await duckDuckGoSearch(searchQuery, { maxResults: searchCount });
+      
+      if (result.success && result.results.length > 0) {
+        searchSuccess = true;
         searchContext = '\n\n=== 联网搜索结果 ===\n';
+        searchContext += '\n找到以下相关信息:\n';
         
-        if (searchResult.summary) {
-          searchContext += `\n摘要: ${searchResult.summary}\n`;
-        }
-        
-        searchContext += '\n相关网页:\n';
-        searchResult.web_items.forEach((item, index) => {
+        result.results.forEach((item, index) => {
           searchContext += `\n${index + 1}. ${item.title}\n`;
-          searchContext += `   来源: ${item.site_name}\n`;
-          searchContext += `   摘要: ${item.snippet}\n`;
+          if (item.site_name) {
+            searchContext += `   来源: ${item.site_name}\n`;
+          }
+          if (item.snippet) {
+            searchContext += `   摘要: ${item.snippet}\n`;
+          }
           searchContext += `   链接: ${item.url}\n`;
         });
         
         searchContext += '\n=== 搜索结果结束 ===\n\n';
+      } else if (!result.success) {
+        yield `⚠️ 搜索失败: ${result.error}\n\n`;
+      } else {
+        yield '⚠️ 未找到相关搜索结果\n\n';
       }
     } catch (error) {
-      console.error('Web search failed:', error);
-      // 检查是否是 URL 错误
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      if (errorMsg.includes('Invalid URL')) {
-        yield '⚠️ 联网搜索配置无效，请检查 COZE_API_KEY 和 COZE_BASE_URL 环境变量。\n\n';
-      } else {
-        yield '⚠️ 联网搜索暂时不可用，请稍后重试。\n\n';
+      console.error('DuckDuckGo search failed:', error);
+      yield '⚠️ 联网搜索暂时不可用，请稍后重试\n\n';
+    }
+  } else {
+    // 使用 Coze SDK（需要配置）
+    if (!isWebSearchConfigured()) {
+      yield '⚠️ 联网搜索功能未配置。如需使用 Coze 搜索，请在 .env 文件中配置 COZE_API_KEY。\n\n';
+    } else {
+      try {
+        const { SearchClient, Config } = await import('coze-coding-dev-sdk');
+        
+        yield '🔍 正在联网搜索...\n\n';
+        
+        const searchConfig = new Config();
+        const searchClient = new SearchClient(searchConfig);
+        const searchResult = await searchClient.webSearch(searchQuery, searchCount, true);
+        
+        if (searchResult.web_items && searchResult.web_items.length > 0) {
+          searchSuccess = true;
+          searchContext = '\n\n=== 联网搜索结果 ===\n';
+          
+          if (searchResult.summary) {
+            searchContext += `\n摘要: ${searchResult.summary}\n`;
+          }
+          
+          searchContext += '\n相关网页:\n';
+          searchResult.web_items.forEach((item, index) => {
+            searchContext += `\n${index + 1}. ${item.title}\n`;
+            searchContext += `   来源: ${item.site_name}\n`;
+            searchContext += `   摘要: ${item.snippet}\n`;
+            searchContext += `   链接: ${item.url}\n`;
+          });
+          
+          searchContext += '\n=== 搜索结果结束 ===\n\n';
+        }
+      } catch (error) {
+        console.error('Coze search failed:', error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes('Invalid URL')) {
+          yield '⚠️ 联网搜索配置无效，请检查环境变量。\n\n';
+        } else {
+          yield '⚠️ 联网搜索暂时不可用，请稍后重试。\n\n';
+        }
       }
     }
   }
 
-  // 2. 构建带搜索上下文的消息
-  const systemMessage: OllamaMessage = {
-    role: 'system',
-    content: `你是一个有帮助的 AI 助手。${searchContext ? `当用户提供搜索结果时，请基于搜索结果回答问题，并注明信息来源。${searchContext}` : ''}`
-  };
+  // 2. 构建系统提示词
+  const systemPrompt = `你是一个专业的 AI 助手，专门为中国中小学生和家长提供服务。
 
-  const messagesWithContext = [systemMessage, ...messages];
+## 核心原则
+1. 必须使用中文回答
+2. 优先使用简单易懂的语言
+3. 回答要准确、有帮助
+4. 如果提供了搜索结果，请基于搜索结果回答，并注明信息来源
 
-  // 3. 调用 Ollama 进行对话
+${searchContext ? `## 搜索结果
+${searchContext}
+
+请基于上述搜索结果回答用户问题，并在回答中引用相关信息来源。
+` : ''}`;
+
+  // 3. 构建消息列表
+  const messagesWithContext: OllamaMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...messages,
+  ];
+
+  // 4. 调用 Ollama 进行对话
   yield* streamChat(messagesWithContext, { model, baseUrl });
 }
 
