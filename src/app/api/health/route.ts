@@ -1,37 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { NextResponse } from 'next/server';
+import { OllamaService } from '@/lib/ollama';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // 提取请求头
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
+    // 检查 Ollama 连接状态
+    const ollamaConnected = await OllamaService.checkHealth();
     
-    // 初始化 LLM 客户端
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
-
-    // 测试连接 - 发送一个简单的消息
-    const messages = [{ role: 'user' as const, content: 'hi' }];
-    
-    try {
-      await client.invoke(messages, {
-        model: 'doubao-seed-1-8-251228',
-        temperature: 0.7,
-      });
-
-      return NextResponse.json({
-        status: 'ok',
-        message: 'AI 服务连接正常',
-        timestamp: new Date().toISOString()
-      });
-    } catch (apiError) {
-      console.error('AI API connection failed:', apiError);
-      return NextResponse.json({
-        status: 'error',
-        message: 'AI 服务连接失败',
-        timestamp: new Date().toISOString()
-      }, { status: 503 });
+    // 获取可用模型列表
+    let models: string[] = [];
+    if (ollamaConnected) {
+      try {
+        models = await OllamaService.getModels();
+      } catch (e) {
+        console.error('Failed to get models:', e);
+      }
     }
+
+    return NextResponse.json({
+      status: ollamaConnected ? 'ok' : 'error',
+      ollama: ollamaConnected ? 'connected' : 'disconnected',
+      models,
+      message: ollamaConnected 
+        ? 'Ollama 服务连接正常' 
+        : 'Ollama 服务未连接，请确保 Ollama 正在运行',
+      timestamp: new Date().toISOString(),
+      config: {
+        ollamaUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+        defaultModel: process.env.OLLAMA_MODEL || 'qwen2.5:7b'
+      }
+    });
   } catch (error) {
     console.error('Health check error:', error);
     return NextResponse.json({

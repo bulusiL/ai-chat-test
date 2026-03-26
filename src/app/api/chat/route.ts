@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { NextRequest, NextResponse } from 'next/server';
+import { OllamaService, OllamaMessage } from '@/lib/ollama';
 
 // 定义消息类型
 interface Message {
@@ -11,12 +11,15 @@ interface Message {
 interface ChatRequest {
   message: string;
   history?: Message[];
+  enableSearch?: boolean;  // 是否启用联网搜索
+  model?: string;          // 指定模型
+  machineId?: string;      // 用户机器码（认证后使用）
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: ChatRequest = await request.json();
-    const { message, history = [] } = body;
+    const { message, history = [], enableSearch = false, model } = body;
 
     if (!message || message.trim() === '') {
       return new Response(
@@ -28,20 +31,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 提取请求头
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    
-    // 初始化 LLM 客户端
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
-
     // 构建消息列表
-    const messages: Message[] = [
+    const messages: OllamaMessage[] = [
       {
         role: 'system',
-        content: '你是一个友好、专业的 AI 助手。请用简洁、清晰的语言回答用户的问题。'
+        content: '你是一个友好、专业的 AI 助手。请用简洁、清晰的语言回答用户的问题。如果提供了搜索结果，请基于搜索结果回答并注明来源。'
       },
-      ...history,
+      ...history.map(m => ({ role: m.role, content: m.content }) as OllamaMessage),
       { role: 'user', content: message }
     ];
 
@@ -50,17 +46,39 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // 调用 LLM 流式接口
-          const llmStream = client.stream(messages, {
-            model: 'doubao-seed-1-8-251228',
-            temperature: 0.7,
-          });
+          // 如果启用联网搜索
+          if (enableSearch) {
+            // 先发送搜索提示
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: '🔍 正在联网搜索...\n\n' })}\n\n`)
+            );
 
-          for await (const chunk of llmStream) {
-            if (chunk.content) {
-              const text = chunk.content.toString();
-              // SSE 格式: data: {text}\n\n
-              const data = `data: ${JSON.stringify({ content: text })}\n\n`;
+            try {
+              // 使用带搜索的流式对话
+              for await (const chunk of OllamaService.streamChatWithSearch(
+                messages.slice(1), // 不重复发送 system message
+                message,
+                { model }
+              )) {
+                const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
+                controller.enqueue(encoder.encode(data));
+              }
+            } catch (searchError) {
+              // 如果搜索失败，降级到普通对话
+              console.error('Search failed, falling back to normal chat:', searchError);
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ content: '⚠️ 联网搜索暂时不可用，使用本地知识回答\n\n' })}\n\n`)
+              );
+              
+              for await (const chunk of OllamaService.streamChat(messages, { model })) {
+                const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
+                controller.enqueue(encoder.encode(data));
+              }
+            }
+          } else {
+            // 普通对话（无联网搜索）
+            for await (const chunk of OllamaService.streamChat(messages, { model })) {
+              const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
               controller.enqueue(encoder.encode(data));
             }
           }
