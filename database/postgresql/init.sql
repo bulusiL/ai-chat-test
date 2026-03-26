@@ -134,6 +134,51 @@ COMMENT ON COLUMN messages.content IS '消息内容';
 COMMENT ON COLUMN messages.created_at IS '创建时间';
 
 -- ===========================================
+-- 5. 知识库表 (knowledge_entries)
+-- 用途: 存储知识库条目，支持动态管理
+-- ===========================================
+DROP TABLE IF EXISTS knowledge_entries CASCADE;
+
+-- 创建枚举类型
+CREATE TYPE knowledge_category AS ENUM ('book', 'study', 'other');
+
+CREATE TABLE knowledge_entries (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    category knowledge_category NOT NULL DEFAULT 'other',
+    tags VARCHAR(500) DEFAULT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 索引
+CREATE INDEX idx_knowledge_category ON knowledge_entries(category);
+CREATE INDEX idx_knowledge_is_active ON knowledge_entries(is_active);
+CREATE INDEX idx_knowledge_sort_order ON knowledge_entries(sort_order);
+
+-- 全文搜索索引
+CREATE INDEX idx_knowledge_content_search ON knowledge_entries USING gin(to_tsvector('chinese', title || ' ' || content));
+
+-- 注释
+COMMENT ON TABLE knowledge_entries IS '知识库条目表';
+COMMENT ON COLUMN knowledge_entries.id IS '主键ID';
+COMMENT ON COLUMN knowledge_entries.title IS '知识标题';
+COMMENT ON COLUMN knowledge_entries.content IS '知识内容';
+COMMENT ON COLUMN knowledge_entries.category IS '分类：图书/学习/其他';
+COMMENT ON COLUMN knowledge_entries.tags IS '标签，逗号分隔';
+COMMENT ON COLUMN knowledge_entries.is_active IS '是否启用';
+COMMENT ON COLUMN knowledge_entries.sort_order IS '排序顺序';
+
+-- 更新时间触发器
+CREATE TRIGGER update_knowledge_entries_updated_at 
+    BEFORE UPDATE ON knowledge_entries 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ===========================================
 -- 视图: 活跃设备统计
 -- ===========================================
 CREATE OR REPLACE VIEW v_device_stats AS

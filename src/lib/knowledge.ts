@@ -1,9 +1,13 @@
 /**
  * 知识库服务
- * 用于管理图书和小学生学习相关的知识
+ * 用于管理图书和中小学生相关的知识
  * 
- * 注意：使用此服务需要配置 coze-coding-dev-sdk 的相关凭证
+ * 支持两种模式：
+ * 1. 数据库模式：知识存储在数据库中，支持动态管理
+ * 2. 离线模式：使用内置知识库（当数据库不可用时）
  */
+
+import { getDb } from './db';
 
 // 是否启用 SDK（检查是否配置）
 const isSDKConfigured = (): boolean => {
@@ -16,11 +20,13 @@ const isSDKConfigured = (): boolean => {
  * 知识文档接口
  */
 export interface KnowledgeEntry {
-  id?: string;
+  id?: number;
   title: string;
   content: string;
   category: 'book' | 'study' | 'other';
   tags?: string[];
+  is_active?: boolean;
+  sort_order?: number;
 }
 
 /**
@@ -29,7 +35,7 @@ export interface KnowledgeEntry {
 export interface KnowledgeSearchResult {
   content: string;
   score: number;
-  docId?: string;
+  id?: number;
 }
 
 // 内置知识库（离线模式使用）- 面向中国中小学生
@@ -368,7 +374,40 @@ const offlineKnowledge: KnowledgeEntry[] = [
 ];
 
 /**
- * 搜索知识库（离线模式 - 使用内置知识）
+ * 从数据库获取所有知识条目
+ */
+async function getKnowledgeFromDB(): Promise<KnowledgeEntry[]> {
+  try {
+    const db = getDb();
+    const result = await db.query(`
+      SELECT id, title, content, category, tags, is_active, sort_order
+      FROM knowledge_entries
+      WHERE is_active = TRUE
+      ORDER BY sort_order ASC, id ASC
+    `);
+
+    if (result.rows && result.rows.length > 0) {
+      return result.rows.map((row: Record<string, unknown>) => ({
+        id: row.id as number,
+        title: row.title as string,
+        content: row.content as string,
+        category: row.category as 'book' | 'study' | 'other',
+        tags: row.tags ? (row.tags as string).split(',').map((t: string) => t.trim()) : [],
+        is_active: row.is_active as boolean,
+        sort_order: row.sort_order as number
+      }));
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Failed to get knowledge from database:', error);
+    return [];
+  }
+}
+
+/**
+ * 搜索知识库
+ * 优先从数据库读取，如果数据库为空则使用离线知识库
  */
 export async function searchKnowledge(
   query: string,
@@ -393,20 +432,27 @@ export async function searchKnowledge(
         return response.chunks.map(chunk => ({
           content: chunk.content,
           score: chunk.score,
-          docId: chunk.doc_id
         }));
       }
     } catch (error) {
       console.error('Online knowledge search failed:', error);
-      // 降级到离线模式
+      // 降级到数据库/离线模式
     }
   }
   
-  // 离线模式：简单的关键词匹配
+  // 尝试从数据库获取知识
+  let knowledgeBase = await getKnowledgeFromDB();
+  
+  // 如果数据库为空，使用离线知识库
+  if (knowledgeBase.length === 0) {
+    knowledgeBase = offlineKnowledge;
+  }
+  
+  // 搜索匹配
   const results: KnowledgeSearchResult[] = [];
   const queryLower = query.toLowerCase();
   
-  for (const entry of offlineKnowledge) {
+  for (const entry of knowledgeBase) {
     let score = 0;
     const contentLower = entry.content.toLowerCase();
     const titleLower = entry.title.toLowerCase();
@@ -440,7 +486,8 @@ export async function searchKnowledge(
     if (score >= minScore) {
       results.push({
         content: `【${entry.title}】\n\n${entry.content}`,
-        score: Math.min(score, 1)
+        score: Math.min(score, 1),
+        id: entry.id
       });
     }
   }
@@ -479,7 +526,160 @@ export function buildKnowledgePrompt(
   return prompt;
 }
 
+/**
+ * 添加知识条目（管理员使用）
+ */
+export async function addKnowledgeEntry(entry: KnowledgeEntry): Promise<number | null> {
+  try {
+    const db = getDb();
+    const tagsStr = (entry.tags || []).join(',');
+    
+    const result = await db.query(`
+      INSERT INTO knowledge_entries (title, content, category, tags, is_active, sort_order)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id
+    `, [entry.title, entry.content, entry.category, tagsStr, entry.is_active ?? true, entry.sort_order ?? 0]);
+
+    return result.rows?.[0]?.id || null;
+  } catch (error) {
+    console.error('Failed to add knowledge entry:', error);
+    return null;
+  }
+}
+
+/**
+ * 更新知识条目（管理员使用）
+ */
+export async function updateKnowledgeEntry(id: number, entry: Partial<KnowledgeEntry>): Promise<boolean> {
+  try {
+    const db = getDb();
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    if (entry.title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(entry.title);
+    }
+    if (entry.content !== undefined) {
+      updates.push(`content = $${paramIndex++}`);
+      values.push(entry.content);
+    }
+    if (entry.category !== undefined) {
+      updates.push(`category = $${paramIndex++}`);
+      values.push(entry.category);
+    }
+    if (entry.tags !== undefined) {
+      updates.push(`tags = $${paramIndex++}`);
+      values.push(entry.tags.join(','));
+    }
+    if (entry.is_active !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(entry.is_active);
+    }
+    if (entry.sort_order !== undefined) {
+      updates.push(`sort_order = $${paramIndex++}`);
+      values.push(entry.sort_order);
+    }
+
+    if (updates.length === 0) {
+      return false;
+    }
+
+    values.push(id);
+    const query = `UPDATE knowledge_entries SET ${updates.join(', ')} WHERE id = $${paramIndex}`;
+    
+    const result = await db.query(query, values);
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    console.error('Failed to update knowledge entry:', error);
+    return false;
+  }
+}
+
+/**
+ * 删除知识条目（管理员使用）
+ */
+export async function deleteKnowledgeEntry(id: number): Promise<boolean> {
+  try {
+    const db = getDb();
+    const result = await db.query('DELETE FROM knowledge_entries WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    console.error('Failed to delete knowledge entry:', error);
+    return false;
+  }
+}
+
+/**
+ * 获取所有知识条目（管理员使用）
+ */
+export async function getAllKnowledgeEntries(includeInactive = false): Promise<KnowledgeEntry[]> {
+  try {
+    const db = getDb();
+    const query = includeInactive
+      ? 'SELECT * FROM knowledge_entries ORDER BY sort_order ASC, id ASC'
+      : 'SELECT * FROM knowledge_entries WHERE is_active = TRUE ORDER BY sort_order ASC, id ASC';
+    
+    const result = await db.query(query);
+
+    return result.rows?.map((row: Record<string, unknown>) => ({
+      id: row.id as number,
+      title: row.title as string,
+      content: row.content as string,
+      category: row.category as 'book' | 'study' | 'other',
+      tags: row.tags ? (row.tags as string).split(',').map((t: string) => t.trim()) : [],
+      is_active: row.is_active as boolean,
+      sort_order: row.sort_order as number
+    })) || [];
+  } catch (error) {
+    console.error('Failed to get all knowledge entries:', error);
+    return [];
+  }
+}
+
+/**
+ * 初始化数据库知识库（从离线知识库导入）
+ */
+export async function initializeKnowledgeBase(): Promise<number> {
+  try {
+    const db = getDb();
+    
+    // 检查是否已有数据
+    const countResult = await db.query('SELECT COUNT(*) as count FROM knowledge_entries');
+    const count = countResult.rows?.[0]?.count || 0;
+    
+    if (count > 0) {
+      return 0; // 已有数据，不重复初始化
+    }
+    
+    // 插入离线知识库数据
+    let inserted = 0;
+    for (const entry of offlineKnowledge) {
+      try {
+        await db.query(`
+          INSERT INTO knowledge_entries (title, content, category, tags, is_active, sort_order)
+          VALUES ($1, $2, $3, $4, TRUE, $5)
+        `, [entry.title, entry.content, entry.category, (entry.tags || []).join(','), inserted]);
+        inserted++;
+      } catch (insertError) {
+        console.error(`Failed to insert knowledge entry: ${entry.title}`, insertError);
+      }
+    }
+    
+    return inserted;
+  } catch (error) {
+    console.error('Failed to initialize knowledge base:', error);
+    return 0;
+  }
+}
+
 export const KnowledgeService = {
   searchKnowledge,
   buildKnowledgePrompt,
+  addKnowledgeEntry,
+  updateKnowledgeEntry,
+  deleteKnowledgeEntry,
+  getAllKnowledgeEntries,
+  initializeKnowledgeBase,
 };

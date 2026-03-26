@@ -284,6 +284,39 @@ async function initPostgreSQLTables() {
   console.log('PostgreSQL 表初始化成功');
 }
 
+/**
+ * 获取数据库操作对象（统一接口）
+ */
+export function getDb() {
+  return {
+    query: async (sql: string, params?: unknown[]) => {
+      const { type, pool } = await getPool();
+      
+      if (type === 'mysql') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const [rows] = await (pool as any).execute(sql, params);
+        return { rows: rows as Record<string, unknown>[], rowCount: Array.isArray(rows) ? rows.length : 0 };
+      } else {
+        const result = await (pool as PgPool).query(sql, params);
+        return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+      }
+    },
+    execute: async (sql: string, params?: unknown[]) => {
+      const { type, pool } = await getPool();
+      
+      if (type === 'mysql') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const [result] = await (pool as any).execute(sql, params);
+        const header = result as mysql.ResultSetHeader;
+        return { affectedRows: header.affectedRows, insertId: header.insertId };
+      } else {
+        const result = await (pool as PgPool).query(sql, params);
+        return { affectedRows: result.rowCount ?? 0, insertId: result.rows[0]?.id ?? null };
+      }
+    }
+  };
+}
+
 export const Database = {
   getPool,
   query,

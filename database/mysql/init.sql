@@ -99,6 +99,32 @@ CREATE TABLE messages (
 -- ===========================================
 -- 视图: 活跃设备统计
 -- ===========================================
+
+-- ===========================================
+-- 5. 知识库表 (knowledge_entries)
+-- 用途: 存储知识库条目，支持动态管理
+-- ===========================================
+DROP TABLE IF EXISTS knowledge_entries;
+CREATE TABLE knowledge_entries (
+    id INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    title VARCHAR(255) NOT NULL COMMENT '知识标题',
+    content TEXT NOT NULL COMMENT '知识内容',
+    category ENUM('book', 'study', 'other') NOT NULL DEFAULT 'other' COMMENT '分类：图书/学习/其他',
+    tags VARCHAR(500) DEFAULT NULL COMMENT '标签，逗号分隔',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
+    sort_order INT DEFAULT 0 COMMENT '排序顺序',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    INDEX idx_category (category),
+    INDEX idx_is_active (is_active),
+    INDEX idx_sort_order (sort_order),
+    FULLTEXT INDEX ft_content (title, content)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识库条目表';
+
+-- ===========================================
+-- 视图: 活跃设备统计
+-- ===========================================
 CREATE OR REPLACE VIEW v_device_stats AS
 SELECT 
     t.id AS token_id,
