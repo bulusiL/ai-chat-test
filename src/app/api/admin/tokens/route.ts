@@ -15,6 +15,16 @@ function generateToken(): string {
  */
 export async function GET(request: NextRequest) {
   try {
+    // 先测试数据库连接
+    const connectionTest = await Database.testConnection();
+    if (!connectionTest.success) {
+      return NextResponse.json({
+        success: false,
+        error: '数据库连接失败: ' + connectionTest.message,
+        hint: '请检查 .env.local 中的数据库配置，并确保 MySQL 服务已启动'
+      }, { status: 500 });
+    }
+
     const tokens: any = await Database.query(`
       SELECT 
         t.id, 
@@ -41,7 +51,7 @@ export async function GET(request: NextRequest) {
     console.error('Get tokens error:', error);
     return NextResponse.json({
       success: false,
-      error: '获取 Token 列表失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
+      error: '获取 Token 列表失败: ' + (error instanceof Error ? error.message : '未知错误')
     }, { status: 500 });
   }
 }
@@ -52,7 +62,28 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // 先测试数据库连接
+    const connectionTest = await Database.testConnection();
+    if (!connectionTest.success) {
+      return NextResponse.json({
+        success: false,
+        error: '数据库连接失败: ' + connectionTest.message,
+        hint: '请检查 .env.local 中的数据库配置，并确保 MySQL 服务已启动'
+      }, { status: 500 });
+    }
+
+    // 安全解析 JSON 请求体
+    let body: { count?: number } = { count: 1 };
+    try {
+      const text = await request.text();
+      if (text && text.trim()) {
+        body = JSON.parse(text);
+      }
+    } catch (parseError) {
+      // JSON 解析失败，使用默认值
+      console.log('Request body parse error, using default count=1');
+    }
+    
     const count = body.count || 1;
 
     if (count < 1 || count > 100) {
@@ -82,7 +113,7 @@ export async function POST(request: NextRequest) {
     console.error('Generate tokens error:', error);
     return NextResponse.json({
       success: false,
-      error: '生成 Token 失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
+      error: '生成 Token 失败: ' + (error instanceof Error ? error.message : '未知错误')
     }, { status: 500 });
   }
 }
@@ -93,6 +124,15 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // 先测试数据库连接
+    const connectionTest = await Database.testConnection();
+    if (!connectionTest.success) {
+      return NextResponse.json({
+        success: false,
+        error: '数据库连接失败: ' + connectionTest.message
+      }, { status: 500 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -130,7 +170,7 @@ export async function DELETE(request: NextRequest) {
     console.error('Delete token error:', error);
     return NextResponse.json({
       success: false,
-      error: '删除 Token 失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
+      error: '删除 Token 失败: ' + (error instanceof Error ? error.message : '未知错误')
     }, { status: 500 });
   }
 }
@@ -141,7 +181,26 @@ export async function DELETE(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
+    // 先测试数据库连接
+    const connectionTest = await Database.testConnection();
+    if (!connectionTest.success) {
+      return NextResponse.json({
+        success: false,
+        error: '数据库连接失败: ' + connectionTest.message
+      }, { status: 500 });
+    }
+
+    // 安全解析 JSON 请求体
+    let body: { id?: number; isActive?: boolean } = {};
+    try {
+      const text = await request.text();
+      if (text && text.trim()) {
+        body = JSON.parse(text);
+      }
+    } catch (parseError) {
+      // JSON 解析失败
+    }
+    
     const { id, isActive } = body;
 
     if (!id || typeof isActive !== 'boolean') {
@@ -164,7 +223,7 @@ export async function PUT(request: NextRequest) {
     console.error('Update token error:', error);
     return NextResponse.json({
       success: false,
-      error: '更新 Token 失败: ' + (error instanceof Error ? error.message : '数据库连接失败')
+      error: '更新 Token 失败: ' + (error instanceof Error ? error.message : '未知错误')
     }, { status: 500 });
   }
 }
