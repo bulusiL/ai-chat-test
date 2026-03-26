@@ -84,7 +84,7 @@ export async function checkOllamaHealth(baseUrl: string = DEFAULT_OLLAMA_URL): P
 export async function getAvailableModels(baseUrl: string = DEFAULT_OLLAMA_URL): Promise<string[]> {
   // 使用缓存（5分钟有效）
   const now = Date.now();
-  if (cachedModels && now - lastModelCheck < 5 * 60 * 1000) {
+  if (cachedModels.length > 0 && now - lastModelCheck < 5 * 60 * 1000) {
     return cachedModels;
   }
   
@@ -105,14 +105,6 @@ export async function getAvailableModels(baseUrl: string = DEFAULT_OLLAMA_URL): 
 }
 
 /**
- * 检查模型是否存在
- */
-export async function checkModelExists(model: string, baseUrl: string = DEFAULT_OLLAMA_URL): Promise<boolean> {
-  const models = await getAvailableModels(baseUrl);
-  return models.length > 0 && models.some(m => m === model || m.startsWith(model.split(':')[0]));
-}
-
-/**
  * 流式聊天 - 使用 messages API (推荐)
  */
 export async function* streamChat(
@@ -124,62 +116,7 @@ export async function* streamChat(
 ): AsyncGenerator<string, void, unknown> {
   const { model = DEFAULT_MODEL, baseUrl = DEFAULT_OLLAMA_URL } = options;
 
-  // 检查模型是否存在
-  const models = await getAvailableModels(baseUrl);
-  const modelExists = models.some(m => m === model || m.startsWith(model.split(':')[0]));
-  
-  if (!modelExists && models.length > 0) {
-    // 模型不存在，尝试使用第一个可用模型
-    const fallbackModel = models[0];
-    console.warn(`Model ${model} not found, using ${fallbackModel} instead`);
-    yield `⚠️ 模型 ${model} 未找到，使用 ${fallbackModel}\n\n`;
-    
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: fallbackModel,
-        messages,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Ollama API 错误: ${response.status} ${response.statusText}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('无法获取响应流');
-    }
-
-    const decoder = new TextDecoder();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
-
-        for (const line of lines) {
-          try {
-            const data: OllamaResponse = JSON.parse(line);
-            if (data.message?.content) {
-              yield data.message.content;
-            }
-          } catch (e) {
-            // 忽略解析错误
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-    return;
-  }
-
+  // 直接尝试调用 API
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -192,7 +129,52 @@ export async function* streamChat(
 
   if (!response.ok) {
     if (response.status === 404) {
-      throw new Error(`模型 "${model}" 不存在。请运行: ollama pull ${model}`);
+      // 模型不存在，尝试获取可用模型列表
+      const availableModels = await getAvailableModels(baseUrl);
+      if (availableModels.length > 0) {
+        const fallbackModel = availableModels[0];
+        console.warn(`Model ${model} not found, using ${fallbackModel} instead`);
+        yield `⚠️ 模型 "${model}" 未找到，自动使用 "${fallbackModel}"\n\n`;
+        
+        // 使用第一个可用模型重试
+        const retryResponse = await fetch(`${baseUrl}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: fallbackModel,
+            messages,
+            stream: true,
+          }),
+        });
+        
+        if (retryResponse.ok) {
+          const reader = retryResponse.body?.getReader();
+          if (reader) {
+            const decoder = new TextDecoder();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n').filter(line => line.trim());
+                for (const line of lines) {
+                  try {
+                    const data: OllamaResponse = JSON.parse(line);
+                    if (data.message?.content) {
+                      yield data.message.content;
+                    }
+                  } catch (e) {}
+                }
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          }
+          return;
+        }
+      }
+      
+      throw new Error(`模型 "${model}" 不存在。\n\n可用模型: ${availableModels.length > 0 ? availableModels.join(', ') : '无'}\n\n请运行: ollama pull ${model}`);
     }
     throw new Error(`Ollama API 错误: ${response.status} ${response.statusText}`);
   }
@@ -368,7 +350,6 @@ export async function* streamChatWithSearch(
     }
   } catch (error) {
     console.error('Web search failed:', error);
-    // 搜索失败不影响对话继续
     yield '⚠️ 联网搜索暂时不可用\n\n';
   }
 
@@ -387,7 +368,6 @@ export async function* streamChatWithSearch(
 export const OllamaService = {
   checkHealth: checkOllamaHealth,
   getModels: getAvailableModels,
-  checkModelExists,
   streamChat,
   streamGenerate,
   chat,
