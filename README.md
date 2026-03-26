@@ -8,12 +8,23 @@
 
 ## ✨ 功能特性
 
-- 💬 **智能对话** - 接入 AI 大模型，支持自然语言对话
+### 核心功能
+- 💬 **智能对话** - 接入 AI 大模型 (doubao-seed-1-8-251228)，支持自然语言对话
 - 🌊 **流式输出** - 实时展示 AI 回复，打字机效果
-- 💾 **历史记录** - 自动保存聊天历史，支持会话恢复
-- 🎨 **现代 UI** - 基于 shadcn/ui 的美观界面
-- 📱 **响应式设计** - 完美适配桌面和移动设备
-- 🔄 **实时状态** - 显示连接状态和加载状态
+- 💾 **历史记录** - 自动保存最近 50 条消息，支持会话恢复
+- 🔄 **多轮对话** - 完整的上下文管理，支持连续对话
+
+### 用户体验
+- 🌙 **深色模式** - 一键切换明暗主题，自动保存偏好
+- 📋 **消息复制** - 一键复制消息内容到剪贴板
+- 🔄 **重新生成** - 对 AI 回复不满意？一键重新生成
+- 🗑️ **消息删除** - 支持删除单条消息
+
+### Markdown 支持
+- ✅ **Markdown 渲染** - 完整支持 Markdown 语法
+- ✅ **代码高亮** - 自动识别编程语言并高亮显示
+- ✅ **代码复制** - 一键复制代码块
+- ✅ **GFM 支持** - GitHub Flavored Markdown 完全兼容
 
 ## 🛠️ 技术栈
 
@@ -23,6 +34,7 @@
 - **UI Components**: shadcn/ui
 - **Styling**: Tailwind CSS 4
 - **Icons**: Lucide React
+- **Markdown**: react-markdown + remark-gfm + rehype-highlight
 
 ### 后端
 - **Runtime**: Node.js
@@ -73,7 +85,8 @@ ai-chat-assistant/
 │   │   └── globals.css              # 全局样式
 │   ├── components/
 │   │   ├── ui/                      # shadcn/ui 组件
-│   │   └── ChatInterface.tsx        # 聊天界面组件
+│   │   ├── ChatInterface.tsx        # 聊天界面组件
+│   │   └── MarkdownRenderer.tsx     # Markdown 渲染组件
 │   └── lib/
 │       └── utils.ts                 # 工具函数
 ├── public/                          # 静态资源
@@ -118,20 +131,32 @@ ai-chat-assistant/
   }
   ```
 
-## 🎨 功能亮点
+## 🎨 功能详解
 
 ### 1. 流式输出
 使用 Server-Sent Events (SSE) 实现实时流式输出，用户可以看到 AI 逐字生成回复，提供更好的交互体验。
 
-### 2. 历史记录
-- 自动保存最近 50 条聊天记录到浏览器本地存储
-- 页面刷新后自动恢复历史对话
-- 支持清空聊天记录
+### 2. Markdown 渲染
+- 支持完整的 Markdown 语法
+- 自动识别编程语言并应用语法高亮
+- 代码块支持一键复制
+- 支持 GitHub Flavored Markdown (GFM)
 
-### 3. 响应式设计
-- 桌面端和移动端完美适配
-- 流畅的动画效果
-- 深色模式支持（跟随系统）
+### 3. 深色模式
+- 一键切换明暗主题
+- 自动保存用户偏好到本地存储
+- 跟随系统主题自动适配
+
+### 4. 消息管理
+- 复制：一键复制消息内容
+- 重新生成：对 AI 回复不满意时重新生成
+- 删除：删除单条消息
+- 清空：清空所有聊天记录
+
+### 5. 多轮对话
+- 自动管理对话上下文
+- 支持连续对话
+- 智能历史记录管理
 
 ## 🔧 配置说明
 
@@ -149,6 +174,16 @@ const llmStream = client.stream(messages, {
   temperature: 0.7,                  // 温度参数 (0-2)
 });
 ```
+
+### 可用模型
+
+| 模型 | 描述 |
+|------|------|
+| `doubao-seed-1-8-251228` | 多模态 Agent 优化模型 (默认) |
+| `doubao-seed-2-0-pro-260215` | 旗舰模型，复杂推理 |
+| `doubao-seed-2-0-lite-260215` | 平衡性能和成本 |
+| `deepseek-v3-2-251201` | DeepSeek V3.2 模型 |
+| `kimi-k2-5-260127` | Kimi 最强模型 |
 
 ## 📝 开发说明
 
@@ -170,6 +205,24 @@ const llmStream = client.stream(messages, {
 - `test`: 测试相关
 - `chore`: 构建/工具相关
 
+## 🚢 部署
+
+### Vercel 部署
+
+1. 将代码推送到 GitHub
+2. 在 Vercel 导入项目
+3. 自动部署完成
+
+### Docker 部署
+
+```bash
+# 构建镜像
+docker build -t ai-chat-assistant .
+
+# 运行容器
+docker run -p 5000:5000 ai-chat-assistant
+```
+
 ## 📄 许可证
 
 [MIT License](LICENSE)
@@ -180,6 +233,7 @@ const llmStream = client.stream(messages, {
 - [shadcn/ui](https://ui.shadcn.com/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Lucide Icons](https://lucide.dev/)
+- [react-markdown](https://github.com/remarkjs/react-markdown)
 
 ---
 

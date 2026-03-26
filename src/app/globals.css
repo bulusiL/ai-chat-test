@@ -135,3 +135,108 @@
 body {
   @apply font-sans;
 }
+
+/* 代码高亮样式 */
+pre {
+  @apply bg-slate-900 text-slate-50 rounded-lg p-4 overflow-x-auto;
+}
+
+pre code {
+  @apply text-sm leading-relaxed;
+}
+
+/* highlight.js 样式优化 */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6e7681;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #ff7b72;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #79c0ff;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #a5d6ff;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #d2a8ff;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #ffa657;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+  color: #7ee787;
+}
+
+.hljs-regexp,
+.hljs-link {
+  color: #a5d6ff;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #ffa657;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #79c0ff;
+}
+
+.hljs-meta {
+  color: #6e7681;
+}
+
+.hljs-deletion {
+  background: #ffdce0;
+}
+
+.hljs-addition {
+  background: #cdffd8;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* Markdown 样式优化 */
+.markdown-body {
+  @apply text-slate-800 dark:text-slate-200;
+}
+
+.markdown-body pre {
+  @apply my-4;
+}
+
+.markdown-body code:not(pre code) {
+  @apply px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-sm font-mono text-indigo-600 dark:text-indigo-400;
+}
