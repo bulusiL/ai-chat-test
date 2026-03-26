@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { 
   Send, 
@@ -12,7 +11,6 @@ import {
   User, 
   Loader2,
   AlertCircle,
-  CheckCircle2,
   Sun,
   Copy,
   Check,
@@ -25,8 +23,6 @@ import {
   BookOpen,
   Zap,
   Menu,
-  Terminal,
-  Activity
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import AuthScreen from './AuthScreen';
@@ -57,7 +53,7 @@ export default function ChatInterface() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(true); // 默认深色模式
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [enableSearch, setEnableSearch] = useState(false);
   const [enableKnowledge, setEnableKnowledge] = useState(true);
@@ -67,7 +63,7 @@ export default function ChatInterface() {
 
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode');
-    const isDark = savedMode ? savedMode === 'true' : true; // 默认深色
+    const isDark = savedMode ? savedMode === 'true' : true;
     setIsDarkMode(isDark);
     document.documentElement.classList.toggle('dark', isDark);
 
@@ -93,7 +89,7 @@ export default function ChatInterface() {
         localStorage.removeItem('authToken');
       }
     } catch (err) {
-      console.error('Auth check failed:', err);
+      console.error('认证检查失败:', err);
     }
   };
 
@@ -138,7 +134,7 @@ export default function ChatInterface() {
         setSessions(data.sessions);
       }
     } catch (err) {
-      console.error('Load sessions failed:', err);
+      console.error('加载会话失败:', err);
     }
   };
 
@@ -157,7 +153,7 @@ export default function ChatInterface() {
         setCurrentSessionId(sessionId);
       }
     } catch (err) {
-      console.error('Load messages failed:', err);
+      console.error('加载消息失败:', err);
     }
   };
 
@@ -177,7 +173,7 @@ export default function ChatInterface() {
         loadSessions(machineId);
       }
     } catch (err) {
-      console.error('Create session failed:', err);
+      console.error('创建会话失败:', err);
     }
   };
 
@@ -192,7 +188,7 @@ export default function ChatInterface() {
         loadSessions(machineId);
       }
     } catch (err) {
-      console.error('Delete session failed:', err);
+      console.error('删除会话失败:', err);
     }
   };
 
@@ -206,7 +202,7 @@ export default function ChatInterface() {
         body: JSON.stringify({ sessionId: currentSessionId, role, content })
       });
     } catch (err) {
-      console.error('Save message failed:', err);
+      console.error('保存消息失败:', err);
     }
   };
 
@@ -237,7 +233,7 @@ export default function ChatInterface() {
           loadSessions(machineId);
         }
       } catch (err) {
-        console.error('Create session failed:', err);
+        console.error('创建会话失败:', err);
         return;
       }
     }
@@ -337,7 +333,7 @@ export default function ChatInterface() {
         }
       }
     } catch (err) {
-      console.error('Chat error:', err);
+      console.error('对话错误:', err);
       const errorMessage = err instanceof Error ? err.message : '发生未知错误';
       setError(errorMessage);
       
@@ -372,67 +368,92 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="flex h-screen bg-background grid-bg overflow-hidden">
+    <div className="flex h-screen bg-[#030014] overflow-hidden relative">
+      {/* 动态背景 - 科技感光晕 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* 紫色光晕 */}
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] animate-pulse"></div>
+        {/* 蓝色光晕 */}
+        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-blue-600/15 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '1s'}}></div>
+        {/* 靛蓝光晕 */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-600/10 rounded-full blur-[100px]"></div>
+        
+        {/* 科技网格背景 */}
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: `linear-gradient(rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px)`,
+          backgroundSize: '40px 40px'
+        }}></div>
+
+        {/* 扫描线动画 */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute w-full h-[2px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent animate-scan"></div>
+        </div>
+      </div>
+
       {/* 侧边栏 */}
-      <div className={`flex-shrink-0 border-r transition-all duration-300 ease-in-out ${
+      <div className={`flex-shrink-0 transition-all duration-300 ease-in-out relative z-10 ${
         showSidebar ? 'w-72' : 'w-0'
-      } bg-sidebar border-sidebar-border`}>
+      }`}>
         {showSidebar && (
-          <div className="h-full flex flex-col scanline">
+          <div className="h-full flex flex-col bg-[#0a0a1a]/90 backdrop-blur-xl border-r border-purple-500/20">
             {/* Logo 区域 */}
-            <div className="p-5 border-b border-sidebar-border">
+            <div className="p-5 border-b border-purple-500/20">
               <div className="flex items-center gap-3 mb-5">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center glow">
-                    <Cpu className="w-5 h-5 text-white" />
+                  {/* Logo 图标 */}
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <Cpu className="w-6 h-6 text-white" />
                   </div>
-                  <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-glow"></div>
+                  {/* 在线状态 */}
+                  <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 ring-2 ring-[#0a0a1a] flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75"></div>
+                  </div>
                 </div>
                 <div>
-                  <h1 className="font-bold text-lg neon-text">AI Chat</h1>
-                  <p className="text-xs text-muted-foreground font-mono">v2.0.0</p>
+                  <h1 className="font-bold text-xl text-white">
+                    智能助手
+                  </h1>
+                  <p className="text-sm text-purple-400">AI 学习伙伴</p>
                 </div>
               </div>
               
               <Button
                 onClick={createNewSession}
-                className="w-full h-10 btn-tech bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium"
+                className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 rounded-xl"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                新建会话
+                <Plus className="w-5 h-5 mr-2" />
+                新建对话
               </Button>
             </div>
 
             {/* 会话列表 */}
-            <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
               {sessions.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-14 h-14 mx-auto mb-4 rounded-lg border border-border bg-secondary/50 flex items-center justify-center">
-                    <Terminal className="w-7 h-7 text-muted-foreground" />
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-900/50 to-indigo-900/50 border border-purple-500/20 flex items-center justify-center">
+                    <MessageSquare className="w-8 h-8 text-purple-400" />
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground">无会话记录</p>
-                  <p className="text-xs mt-1 text-muted-foreground/70">开始新对话</p>
+                  <p className="text-sm text-purple-300/70">暂无对话</p>
+                  <p className="text-xs mt-1 text-purple-400/50">开始新的对话吧</p>
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  {sessions.map((session, index) => (
+                <div className="space-y-2">
+                  {sessions.map((session) => (
                     <div
                       key={session.session_id}
                       onClick={() => loadMessages(session.session_id)}
-                      className={`group relative flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border ${
+                      className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                         currentSessionId === session.session_id
-                          ? 'bg-indigo-500/10 border-indigo-500/30 text-foreground' 
-                          : 'hover:bg-secondary/50 border-transparent text-muted-foreground hover:text-foreground'
+                          ? 'bg-gradient-to-r from-purple-500/30 to-indigo-500/30 border border-purple-500/40 text-white shadow-lg shadow-purple-500/10' 
+                          : 'hover:bg-purple-500/10 text-purple-300/70 hover:text-white border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xs font-mono text-indigo-400">{String(index + 1).padStart(2, '0')}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{session.title}</p>
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {new Date(session.updated_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
-                          </p>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{session.title}</p>
+                        <p className="text-xs text-purple-400/60 mt-1">
+                          {new Date(session.updated_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                        </p>
                       </div>
                       <Button
                         variant="ghost"
@@ -441,9 +462,9 @@ export default function ChatInterface() {
                           e.stopPropagation();
                           deleteSession(session.session_id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 hover:bg-destructive/20 hover:text-destructive"
+                        className="opacity-0 group-hover:opacity-100 h-8 w-8 p-0 hover:bg-red-500/20 hover:text-red-400 text-purple-400"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   ))}
@@ -452,18 +473,18 @@ export default function ChatInterface() {
             </div>
 
             {/* 底部操作 */}
-            <div className="p-4 border-t border-sidebar-border space-y-3">
+            <div className="p-4 border-t border-purple-500/20 space-y-3">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-medium text-muted-foreground">LIGHT MODE</span>
+                <span className="text-sm text-purple-300/70">浅色模式</span>
                 <Switch checked={!isDarkMode} onCheckedChange={toggleDarkMode} />
               </div>
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                className="w-full justify-start text-purple-300/70 hover:text-white hover:bg-purple-500/10"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                退出系统
+                <LogOut className="w-5 h-5 mr-2" />
+                退出登录
               </Button>
             </div>
           </div>
@@ -471,26 +492,25 @@ export default function ChatInterface() {
       </div>
 
       {/* 主内容区 */}
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 relative z-10">
         {/* 头部 */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border bg-background/80 backdrop-blur-sm z-10">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-purple-500/20 bg-[#0a0a1a]/70 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowSidebar(!showSidebar)}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              className="h-10 w-10 p-0 text-purple-300 hover:text-white hover:bg-purple-500/10"
             >
               {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
             
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <Activity className={`w-4 h-4 ${isConnected ? 'text-emerald-500' : 'text-destructive'}`} />
-                <span className="text-xs font-mono text-muted-foreground">
-                  {isConnected ? 'ONLINE' : 'OFFLINE'}
-                </span>
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="relative">
+                <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
+                {isConnected && <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75"></div>}
               </div>
+              <span className="text-sm text-purple-300/70">{isConnected ? '已连接' : '离线'}</span>
             </div>
           </div>
           
@@ -499,37 +519,37 @@ export default function ChatInterface() {
               variant={enableKnowledge ? "default" : "outline"}
               size="sm"
               onClick={() => setEnableKnowledge(!enableKnowledge)}
-              className={`h-8 gap-1.5 font-mono text-xs ${
+              className={`h-9 gap-2 text-sm rounded-lg ${
                 enableKnowledge 
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white glow' 
-                  : 'border-border text-muted-foreground'
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/30' 
+                  : 'border-purple-500/30 text-purple-300 hover:text-white hover:bg-purple-500/10'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">KNOWLEDGE</span>
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">知识库</span>
             </Button>
             
             <Button
               variant={enableSearch ? "default" : "outline"}
               size="sm"
               onClick={() => setEnableSearch(!enableSearch)}
-              className={`h-8 gap-1.5 font-mono text-xs ${
+              className={`h-9 gap-2 text-sm rounded-lg ${
                 enableSearch 
-                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white glow' 
-                  : 'border-border text-muted-foreground'
+                  ? 'bg-purple-500 hover:bg-purple-400 text-white shadow-lg shadow-purple-500/30' 
+                  : 'border-purple-500/30 text-purple-300 hover:text-white hover:bg-purple-500/10'
               }`}
             >
-              <Search className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">SEARCH</span>
+              <Search className="w-4 h-4" />
+              <span className="hidden sm:inline">联网搜索</span>
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleDarkMode}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 p-0 text-purple-300 hover:text-white hover:bg-purple-500/10"
             >
-              <Sun className="w-4 h-4" />
+              <Sun className="w-5 h-5" />
             </Button>
           </div>
         </div>
@@ -538,86 +558,106 @@ export default function ChatInterface() {
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="relative mb-8">
-                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center glow animate-float">
-                  <Cpu className="w-10 h-10 text-white" />
+              {/* Logo 动画 */}
+              <div className="relative mb-10">
+                {/* 主图标 */}
+                <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 flex items-center justify-center shadow-2xl shadow-purple-500/40 animate-float">
+                  <Cpu className="w-14 h-14 text-white" />
                 </div>
-                <div className="absolute -inset-4 rounded-2xl border border-indigo-500/20 animate-spin-slow"></div>
-                <div className="absolute -inset-8 rounded-3xl border border-purple-500/10"></div>
+                {/* 外圈装饰 */}
+                <div className="absolute -inset-5 rounded-[2rem] border-2 border-purple-500/30 animate-spin-slow"></div>
+                <div className="absolute -inset-10 rounded-[3rem] border border-indigo-500/20"></div>
+                {/* 光点 */}
+                <div className="absolute -top-3 -right-3 w-5 h-5 rounded-full bg-pink-500 shadow-lg shadow-pink-500/50 animate-pulse"></div>
+                <div className="absolute -bottom-3 -left-3 w-4 h-4 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50 animate-pulse" style={{animationDelay: '0.5s'}}></div>
               </div>
               
-              <h2 className="text-2xl font-bold mb-2 neon-text">
-                SYSTEM READY
+              <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                你好，我是你的学习助手
               </h2>
-              <p className="text-center max-w-md mb-8 text-muted-foreground font-mono text-sm">
-                AI 学习助手已就绪 · 等待输入指令
+              <p className="text-center max-w-md mb-12 text-lg text-purple-300/70">
+                我可以帮你推荐图书、解答学习问题、查询实时信息
               </p>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
-                {[
-                  { icon: BookOpen, text: '推荐五年级读物', cmd: 'BOOK_RECOMMEND' },
-                  { icon: Zap, text: '数学学习方法', cmd: 'MATH_TIPS' },
-                  { icon: Search, text: '查询天气', cmd: 'WEATHER' },
-                ].map((item, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setInputValue(item.text)}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-indigo-500/30 transition-all duration-200 text-left group"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
-                      <item.icon className="w-4 h-4 text-indigo-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.text}</p>
-                      <p className="text-xs font-mono text-muted-foreground">{item.cmd}</p>
-                    </div>
-                  </button>
-                ))}
+              {/* 快捷选项 */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl">
+                {/* 选项1 */}
+                <button
+                  onClick={() => setInputValue('推荐五年级读物')}
+                  className="group flex items-center gap-4 p-5 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/15 hover:border-purple-500/40 transition-all duration-300 text-left"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
+                    <BookOpen className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <span className="text-base text-purple-200 group-hover:text-white transition-colors">推荐五年级读物</span>
+                </button>
+                
+                {/* 选项2 */}
+                <button
+                  onClick={() => setInputValue('数学学习方法')}
+                  className="group flex items-center gap-4 p-5 rounded-2xl border border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/40 transition-all duration-300 text-left"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center group-hover:bg-violet-500/30 transition-colors">
+                    <Zap className="w-6 h-6 text-violet-400" />
+                  </div>
+                  <span className="text-base text-violet-200 group-hover:text-white transition-colors">数学学习方法</span>
+                </button>
+                
+                {/* 选项3 */}
+                <button
+                  onClick={() => setInputValue('今天北京天气')}
+                  className="group flex items-center gap-4 p-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/15 hover:border-indigo-500/40 transition-all duration-300 text-left"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500/30 transition-colors">
+                    <Search className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <span className="text-base text-indigo-200 group-hover:text-white transition-colors">今天北京天气</span>
+                </button>
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-4">
+            <div className="max-w-3xl mx-auto space-y-6">
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+                  className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
                 >
                   {/* 头像 */}
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
                     message.role === 'user'
-                      ? 'bg-secondary border border-border'
-                      : 'bg-gradient-to-br from-indigo-500 to-purple-600 glow'
+                      ? 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/20'
+                      : 'bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/20'
                   }`}>
                     {message.role === 'user' ? (
-                      <User className="w-4 h-4 text-muted-foreground" />
+                      <User className="w-5 h-5 text-white" />
                     ) : (
-                      <Cpu className="w-4 h-4 text-white" />
+                      <Cpu className="w-5 h-5 text-white" />
                     )}
                   </div>
                   
                   {/* 消息内容 */}
                   <div className={`max-w-[85%] sm:max-w-[75%] ${message.role === 'assistant' ? 'min-w-[200px]' : ''}`}>
-                    <Card className={`message-bubble overflow-hidden ${
+                    <Card className={`overflow-hidden transition-all duration-200 ${
                       message.role === 'user'
-                        ? 'bg-indigo-600 text-white'
-                        : 'tech-card neon-border'
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20 border-0'
+                        : 'bg-[#0f0f1f]/90 border border-purple-500/20 backdrop-blur-sm'
                     }`}>
-                      <div className={`px-4 py-3 ${
+                      <div className={`px-5 py-4 ${
                         message.role === 'user' 
                           ? 'text-white' 
-                          : 'text-foreground'
+                          : 'text-purple-100'
                       }`}>
                         {message.role === 'user' ? (
-                          <div className="whitespace-pre-wrap break-words font-mono text-sm">{message.content}</div>
+                          <div className="whitespace-pre-wrap break-words text-base">{message.content}</div>
                         ) : (
                           <div>
                             {message.content ? (
                               <MarkdownRenderer content={message.content} />
                             ) : (
-                              <div className="flex items-center gap-2 text-indigo-400 animate-typing font-mono text-sm">
-                                <span className="w-2 h-2 rounded-full bg-current"></span>
-                                <span className="w-2 h-2 rounded-full bg-current"></span>
-                                <span className="w-2 h-2 rounded-full bg-current"></span>
+                              <div className="flex items-center gap-2 text-purple-400">
+                                <span className="w-2.5 h-2.5 rounded-full bg-current animate-bounce" style={{animationDelay: '0ms'}}></span>
+                                <span className="w-2.5 h-2.5 rounded-full bg-current animate-bounce" style={{animationDelay: '150ms'}}></span>
+                                <span className="w-2.5 h-2.5 rounded-full bg-current animate-bounce" style={{animationDelay: '300ms'}}></span>
                               </div>
                             )}
                           </div>
@@ -626,22 +666,22 @@ export default function ChatInterface() {
                     </Card>
                     
                     {/* 操作按钮 */}
-                    <div className={`flex gap-1 mt-1.5 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex gap-2 mt-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => copyMessage(message.id, message.content)}
-                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground font-mono"
+                        className="h-7 px-3 text-xs text-purple-400/70 hover:text-purple-300 hover:bg-purple-500/10"
                       >
                         {copiedId === message.id ? (
                           <>
-                            <Check className="w-3 h-3 mr-1" />
-                            COPIED
+                            <Check className="w-3.5 h-3.5 mr-1" />
+                            已复制
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3 h-3 mr-1" />
-                            COPY
+                            <Copy className="w-3.5 h-3.5 mr-1" />
+                            复制
                           </>
                         )}
                       </Button>
@@ -655,56 +695,58 @@ export default function ChatInterface() {
         </div>
 
         {/* 输入区域 */}
-        <div className="px-4 sm:px-6 py-4 border-t border-border bg-background/80 backdrop-blur-sm">
+        <div className="px-4 sm:px-6 py-4 border-t border-purple-500/20 bg-[#0a0a1a]/70 backdrop-blur-xl">
           <div className="max-w-3xl mx-auto">
             {error && (
-              <div className="mb-3 p-3 rounded-lg border border-destructive/30 bg-destructive/10">
-                <p className="text-sm flex items-center gap-2 text-destructive font-mono">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>ERROR: {error}</span>
+              <div className="mb-4 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
+                <p className="text-sm flex items-center gap-2 text-red-400">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  {error}
                 </p>
               </div>
             )}
             
             <div className="relative">
+              {/* 发光边框效果 */}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/30 via-violet-500/30 to-indigo-500/30 blur-lg opacity-50"></div>
               <Input
                 ref={inputRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="INPUT MESSAGE..."
+                placeholder="输入你的问题..."
                 disabled={isLoading}
-                className="w-full h-12 pl-4 pr-14 text-base font-mono rounded-lg input-tech bg-secondary/50 border-border text-foreground placeholder:text-muted-foreground"
+                className="relative w-full h-14 pl-5 pr-16 text-base rounded-xl bg-[#0f0f1f]/90 border border-purple-500/30 text-white placeholder:text-purple-400/50 focus:border-purple-500/60 focus:bg-[#0f0f1f]"
               />
               <Button
                 onClick={sendMessage}
                 disabled={isLoading || !inputValue.trim()}
-                className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 p-0 rounded-lg btn-tech ${
+                className={`absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 p-0 rounded-lg transition-all duration-300 ${
                   isLoading || !inputValue.trim()
-                    ? 'bg-secondary text-muted-foreground'
-                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white glow'
+                    ? 'bg-purple-900/50 text-purple-500/50'
+                    : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50'
                 }`}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Send className="w-5 h-5" />
                 )}
               </Button>
             </div>
             
-            <div className="flex items-center justify-center gap-4 mt-3 font-mono text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${enableKnowledge ? 'bg-emerald-500' : 'bg-muted'}`}></span>
-                KB {enableKnowledge ? 'ON' : 'OFF'}
+            <div className="flex items-center justify-center gap-6 mt-4 text-sm text-purple-400/60">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${enableKnowledge ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50' : 'bg-purple-800'}`}></span>
+                知识库 {enableKnowledge ? '已开启' : '已关闭'}
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${enableSearch ? 'bg-indigo-500' : 'bg-muted'}`}></span>
-                SEARCH {enableSearch ? 'ON' : 'OFF'}
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${enableSearch ? 'bg-purple-400 shadow-lg shadow-purple-400/50' : 'bg-purple-800'}`}></span>
+                搜索 {enableSearch ? '已开启' : '已关闭'}
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                ENTER TO SEND
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-700"></span>
+                按 回车 发送
               </div>
             </div>
           </div>

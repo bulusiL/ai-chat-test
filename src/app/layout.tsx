@@ -4,8 +4,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'AI Chat - 智能学习助手',
-    template: '%s | AI Chat',
+    default: '智能助手 - AI 学习伙伴',
+    template: '%s | 智能助手',
   },
   description: '面向中国中小学生的智能 AI 学习助手，支持图书推荐、学习方法指导、联网搜索等功能。',
   keywords: [
@@ -16,17 +16,14 @@ export const metadata: Metadata = {
     '智能对话',
     'Ollama',
   ],
-  authors: [{ name: 'AI Chat Team' }],
+  authors: [{ name: '智能助手团队' }],
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f172a' },
-  ],
+  themeColor: '#030014',
 };
 
 export default function RootLayout({
@@ -37,7 +34,7 @@ export default function RootLayout({
   const isDev = process.env.COZE_PROJECT_ENV === 'DEV';
 
   return (
-    <html lang="en">
+    <html lang="zh-CN" className="dark">
       <body className={`antialiased`}>
         {isDev && <Inspector />}
         {children}

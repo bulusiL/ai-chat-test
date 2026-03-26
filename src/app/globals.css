@@ -175,37 +175,26 @@ html {
   background-size: 50px 50px;
 }
 
-/* 扫描线效果 */
-.scanline {
-  position: relative;
-  overflow: hidden;
-}
-
-.scanline::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
-  animation: scan 3s linear infinite;
-  pointer-events: none;
-  z-index: 100;
-}
-
+/* 扫描线动画 */
 @keyframes scan {
   0% {
-    top: 0;
+    top: -2px;
+    opacity: 0;
+  }
+  10% {
     opacity: 1;
   }
-  50% {
-    opacity: 0.5;
+  90% {
+    opacity: 1;
   }
   100% {
     top: 100%;
-    opacity: 1;
+    opacity: 0;
   }
+}
+
+.animate-scan {
+  animation: scan 4s linear infinite;
 }
 
 /* 霓虹边框 */
