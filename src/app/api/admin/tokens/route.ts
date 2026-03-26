@@ -15,6 +15,25 @@ function generateToken(): string {
  */
 export async function GET(request: NextRequest) {
   try {
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      const tokens = await store.getTokens();
+      
+      // 隐藏部分 token（安全考虑）
+      const safeTokens = tokens.map((t: any) => ({
+        ...t,
+        token: t.token.substring(0, 10) + '...' + t.token.substring(t.token.length - 4),
+      }));
+      
+      return NextResponse.json({
+        success: true,
+        tokens: safeTokens,
+        storage: 'memory'
+      });
+    }
+    
+    // 使用数据库
     const tokens: any = await Database.query(
       `SELECT t.id, t.token, t.is_used, t.created_at, t.used_at,
               u.machine_id, u.created_at as user_created_at
@@ -32,7 +51,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      tokens: safeTokens
+      tokens: safeTokens,
+      storage: 'database'
     });
   } catch (error) {
     console.error('Get tokens error:', error);
@@ -61,6 +81,24 @@ export async function POST(request: NextRequest) {
 
     const tokens: string[] = [];
 
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      for (let i = 0; i < count; i++) {
+        const token = generateToken();
+        await store.insertToken(token);
+        tokens.push(token);
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: `成功生成 ${count} 个 Token (内存存储)`,
+        tokens,
+        storage: 'memory'
+      });
+    }
+
+    // 使用数据库
     for (let i = 0; i < count; i++) {
       const token = generateToken();
       await Database.execute(
@@ -73,7 +111,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `成功生成 ${count} 个 Token`,
-      tokens
+      tokens,
+      storage: 'database'
     });
   } catch (error) {
     console.error('Generate tokens error:', error);
@@ -100,7 +139,25 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 检查是否已被使用
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      const deleted = await store.deleteToken(parseInt(id));
+      
+      if (!deleted) {
+        return NextResponse.json({
+          success: false,
+          error: 'Token 不存在或已被使用'
+        }, { status: 400 });
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: '删除成功'
+      });
+    }
+
+    // 使用数据库
     const tokens: any = await Database.query(
       'SELECT is_used FROM auth_tokens WHERE id = ?',
       [id]

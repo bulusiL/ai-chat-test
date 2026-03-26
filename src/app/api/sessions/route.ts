@@ -10,6 +10,13 @@ function generateSessionId(): string {
 }
 
 /**
+ * 哈希机器码
+ */
+function hashMachineId(machineId: string): string {
+  return crypto.createHash('sha256').update(machineId).digest('hex');
+}
+
+/**
  * 获取用户的所有会话
  * GET /api/sessions?machineId=xxx
  */
@@ -25,9 +32,25 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const hashedMachineId = crypto.createHash('sha256').update(machineId).digest('hex');
+    const hashedMachineId = hashMachineId(machineId);
 
-    // 获取用户的所有会话
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      const sessions = await store.getSessionsByMachineId(hashedMachineId);
+      
+      return NextResponse.json({
+        success: true,
+        sessions: sessions.map(s => ({
+          session_id: s.session_id,
+          title: s.title,
+          created_at: s.created_at,
+          updated_at: s.updated_at
+        }))
+      });
+    }
+
+    // 使用数据库
     const sessions: any = await Database.query(
       `SELECT session_id, title, created_at, updated_at 
        FROM sessions 
@@ -66,10 +89,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const hashedMachineId = crypto.createHash('sha256').update(machineId).digest('hex');
+    const hashedMachineId = hashMachineId(machineId);
     const sessionId = generateSessionId();
 
-    // 创建新会话
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      await store.createSession(sessionId, hashedMachineId, title);
+      
+      return NextResponse.json({
+        success: true,
+        sessionId,
+        title
+      });
+    }
+
+    // 使用数据库
     await Database.execute(
       'INSERT INTO sessions (session_id, machine_id, title, created_at, updated_at, is_deleted) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE)',
       [sessionId, hashedMachineId, title]
@@ -106,6 +141,18 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      await store.updateSessionTitle(sessionId, title);
+      
+      return NextResponse.json({
+        success: true,
+        message: '更新成功'
+      });
+    }
+
+    // 使用数据库
     await Database.execute(
       'UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?',
       [title, sessionId]
@@ -141,6 +188,18 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // 使用内存存储
+    if (Database.isMemoryStore()) {
+      const store = Database.getMemoryStore();
+      await store.deleteSession(sessionId);
+      
+      return NextResponse.json({
+        success: true,
+        message: '删除成功'
+      });
+    }
+
+    // 使用数据库
     await Database.execute(
       'UPDATE sessions SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?',
       [sessionId]
